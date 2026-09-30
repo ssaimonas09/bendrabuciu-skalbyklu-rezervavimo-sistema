@@ -77,7 +77,7 @@ Kursinio darbo I dalis: projektavimo dokumentas
 
 ### Paprasta schema
 
-
+```text
 Naudotojas
 ↓
 Naudotojo sąsaja / API
@@ -87,6 +87,7 @@ Rezervacijų kūrimo verslo logika
 Duomenų prieigos dalis
 ↓
 Reliacinė duomenų bazė
+```
 
 
 | Sistemos dalis | Atsakomybė |
