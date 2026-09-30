@@ -139,5 +139,5 @@ Taip, rengiant dokumentą buvo naudojamos AI priemonės.
 
 ## Šaltiniai, jei naudojote
 
-„Programų sistemų projektavimas. Įvadinė paskaita“.
-„Kokybiškas programinis kodas. Refaktorinimas“
+1. „Programų sistemų projektavimas. Įvadinė paskaita“.
+2. „Kokybiškas programinis kodas. Refaktorinimas“.
