@@ -1,40 +1,160 @@
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.Scanner;
+import java.util.List;
+
 public class Main {
 
     public static void main(String[] args) {
 
-        Dormitory dormitoryA = new Dormitory(1, "Bendrabutis A");
-
-        User studentA = new User(101, "Studentas A", 1);
-
-        WashingMachine machine = new WashingMachine(2, 1);
-
-        System.out.println("Bendrabučių skalbyklų rezervavimo sistema");
-
-        System.out.println("Bendrabutis: " + dormitoryA.getName());
-
-        System.out.println("Naudotojas: " + studentA.getName());
-
-        System.out.println("Skalbimo mašina Nr.: " + machine.getId());
-
+        Scanner scanner = new Scanner(System.in);
 
         ReservationRepository repository = new ReservationRepository();
+        ReservationService service = new ReservationService(repository);
 
-        Reservation reservation = new Reservation(
-                1,
-                1,
-                101,
-                2,
-                java.time.LocalDateTime.of(2026, 11, 5, 15, 0),
-                java.time.LocalDateTime.of(2026, 11, 5, 16, 0)
+
+        User studentA = new User(101, "Studentas A", 1);
+        User studentB = new User(101, "Studentas B", 2);
+
+        User student = studentA;
+
+        List<WashingMachine> machines = List.of(
+                new WashingMachine(2, 1),
+                new WashingMachine(3, 1),
+                new WashingMachine(2, 2),
+                new WashingMachine(3, 2)
         );
 
-        repository.save(reservation);
 
-        System.out.println("Bendrabučio A rezervacijų skaičius: "
-                + repository.findByDormitoryId(1).size());
+        DateTimeFormatter format =
+                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+
+        while (true) {
+
+            System.out.println("\nDabartinis studentas: " + student.getName());
+            System.out.println("Bendrabutis Nr.: " + student.getDormitoryId());
+
+            System.out.println("\n1 - Sukurti rezervaciją");
+            System.out.println("2 - Mano rezervacijos");
+            System.out.println("3 - Atšaukti rezervaciją");
+            System.out.println("4 - Pakeisti demonstracinį studentą");
+
+            System.out.println("0 - Baigti programą");
+            System.out.print("Pasirinkimas: ");
+
+            String choice = scanner.nextLine();
+
+            if (choice.equals("0")) {
+                break;
+            }
+
+            if (choice.equals("4")) {
+
+                if (student.getDormitoryId() == 1) {
+                    student = studentB;
+                } else {
+                    student = studentA;
+                }
+
+                System.out.println("Pasirinktas studentas: " + student.getName());
+                continue;
+            }
 
 
+
+            if (choice.equals("2")) {
+
+                List<Reservation> myReservations =
+                        service.getMyReservations(student);
+
+                if (myReservations.isEmpty()) {
+                    System.out.println("Rezervacijų nėra.");
+                } else {
+                    for (Reservation reservation : myReservations) {
+                        System.out.println(
+                                "Rezervacija Nr. " + reservation.getId()
+                                        + " | Mašina Nr. " + reservation.getWashingMachineId()
+                                        + " | Pradžia: " + reservation.getStartTime().format(format)
+                                        + " | Pabaiga: " + reservation.getEndTime().format(format)
+                        );
+                    }
+                }
+
+                continue;
+            }
+
+            if (choice.equals("3")) {
+
+                try {
+                    System.out.print("Rezervacijos numeris: ");
+                    int reservationId = Integer.parseInt(scanner.nextLine());
+
+                    service.cancelReservation(student, reservationId);
+
+                    System.out.println("Rezervacija atšaukta.");
+
+                } catch (NumberFormatException e) {
+                    System.out.println("Įveskite teisingą rezervacijos numerį.");
+
+                } catch (IllegalArgumentException e) {
+                    System.out.println("Atšaukimas nepavyko: " + e.getMessage());
+                }
+
+                continue;
+            }
+
+            if (!choice.equals("1")) {
+                System.out.println("Neteisingas pasirinkimas.");
+                continue;
+            }
+
+
+            try {
+                System.out.print("Mašinos numeris (2 arba 3): ");
+                int machineId = Integer.parseInt(scanner.nextLine());
+
+                WashingMachine machine = null;
+
+                for (WashingMachine availableMachine : machines) {
+
+                    if (availableMachine.getId() == machineId
+                            && availableMachine.getDormitoryId() == student.getDormitoryId()) {
+
+                        machine = availableMachine;
+                        break;
+                    }
+                }
+
+                if (machine == null) {
+                    System.out.println("Tokios mašinos šiame bendrabutyje nėra.");
+                    continue;
+                }
+
+
+                System.out.print("Data ir laikas (yyyy-MM-dd HH:mm): ");
+
+                LocalDateTime startTime =
+                        LocalDateTime.parse(scanner.nextLine(), format);
+
+                Reservation reservation =
+                        service.createReservation(student, machine, startTime);
+
+                System.out.println("Rezervacija sėkmingai sukurta!");
+                System.out.println("Rezervacijos Nr.: " + reservation.getId());
+                System.out.println("Pradžia: " +
+                        reservation.getStartTime().format(format));
+                System.out.println("Pabaiga: " +
+                        reservation.getEndTime().format(format));
+
+            } catch (DateTimeParseException | NumberFormatException e) {
+                System.out.println("Neteisingas duomenų formatas.");
+            } catch (IllegalArgumentException e) {
+                System.out.println("Rezervacija atmesta: " + e.getMessage());
+            }
+        }
+
+        scanner.close();
     }
-
 }
