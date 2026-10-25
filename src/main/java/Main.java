@@ -4,6 +4,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Scanner;
 import java.util.List;
+import java.time.format.ResolverStyle;
 
 public class Main {
 
@@ -28,8 +29,11 @@ public class Main {
         );
 
 
+
         DateTimeFormatter format =
-                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+                DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm")
+                        .withResolverStyle(ResolverStyle.STRICT);
+
 
         while (true) {
 

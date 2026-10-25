@@ -3,6 +3,7 @@ import java.time.LocalDateTime;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -291,6 +292,67 @@ public class ReservationServiceTest {
         service.cancelReservation(studentA, reservation.getId());
 
         assertEquals(0, service.getMyReservations(studentA).size());
+    }
+
+    @Test
+    void cannotSeeOtherStudentsReservationsInSameDormitory() {
+
+
+        ReservationRepository repository = new ReservationRepository();
+        ReservationService service = createService(repository);
+
+        User studentA = new User(101, "Studentas A", 1);
+        User studentC = new User(102, "Studentas C", 1);
+
+        WashingMachine machine2 = new WashingMachine(2, 1);
+        WashingMachine machine3 = new WashingMachine(3, 1);
+
+        LocalDateTime startTime =
+                LocalDateTime.of(2030, 11, 20, 15, 0);
+
+        service.createReservation(studentC, machine2, startTime);
+        Reservation reservationA =
+                service.createReservation(studentA, machine3, startTime);
+
+
+        List<Reservation> reservations =
+                service.getMyReservations(studentA);
+
+
+        assertEquals(1, reservations.size());
+        assertEquals(reservationA.getId(), reservations.get(0).getId());
+    }
+
+
+    @Test
+    void cannotCancelOtherStudentsReservationInSameDormitory() {
+
+
+        ReservationRepository repository = new ReservationRepository();
+        ReservationService service = createService(repository);
+
+        User studentA = new User(101, "Studentas A", 1);
+        User studentC = new User(102, "Studentas C", 1);
+
+        WashingMachine machine = new WashingMachine(2, 1);
+
+        LocalDateTime startTime =
+                LocalDateTime.of(2030, 11, 20, 15, 0);
+
+        Reservation reservationC =
+                service.createReservation(studentC, machine, startTime);
+
+
+        assertThrows(IllegalArgumentException.class, () ->
+                service.cancelReservation(studentA, reservationC.getId())
+        );
+
+
+        List<Reservation> reservations =
+                service.getMyReservations(studentC);
+
+        assertEquals(1, reservations.size());
+        assertEquals(reservationC.getId(), reservations.get(0).getId());
     }
 
 
