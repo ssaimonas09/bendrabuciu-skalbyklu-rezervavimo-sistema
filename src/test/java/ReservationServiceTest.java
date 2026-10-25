@@ -356,5 +356,78 @@ public class ReservationServiceTest {
     }
 
 
+    @Test
+    void allowsReservationStartingAtSeven() {
+
+        ReservationRepository repository = new ReservationRepository();
+        ReservationService service = createService(repository);
+
+        User student = new User(101, "Studentas A", 1);
+        WashingMachine machine = new WashingMachine(2, 1);
+
+        LocalDateTime startTime =
+                LocalDateTime.of(2030, 11, 20, 7, 0);
+
+        Reservation reservation =
+                service.createReservation(student, machine, startTime);
+
+        assertEquals(startTime, reservation.getStartTime());
+        assertEquals(
+                LocalDateTime.of(2030, 11, 20, 8, 0),
+                reservation.getEndTime()
+        );
+    }
+
+
+    @Test
+    void rejectsReservationOverlappingFromEarlierStart() {
+
+        ReservationRepository repository = new ReservationRepository();
+        ReservationService service = createService(repository);
+
+        User studentA = new User(101, "Studentas A", 1);
+        User studentC = new User(102, "Studentas C", 1);
+
+        WashingMachine machine = new WashingMachine(2, 1);
+
+        LocalDateTime existingStart =
+                LocalDateTime.of(2030, 11, 20, 15, 0);
+
+        LocalDateTime newStart =
+                LocalDateTime.of(2030, 11, 20, 14, 30);
+
+        service.createReservation(studentA, machine, existingStart);
+
+        assertThrows(IllegalArgumentException.class, () ->
+                service.createReservation(studentC, machine, newStart)
+        );
+    }
+
+    @Test
+    void allowsReservationAfterCancellation() {
+
+        ReservationRepository repository = new ReservationRepository();
+        ReservationService service = createService(repository);
+
+        User student = new User(101, "Studentas A", 1);
+        WashingMachine machine = new WashingMachine(2, 1);
+
+        LocalDateTime startTime =
+                LocalDateTime.of(2030, 11, 20, 15, 0);
+
+        Reservation firstReservation =
+                service.createReservation(student, machine, startTime);
+
+        service.cancelReservation(student, firstReservation.getId());
+
+        Reservation secondReservation =
+                service.createReservation(student, machine, startTime);
+
+        assertEquals(
+                secondReservation.getId(),
+                service.getMyReservations(student).get(0).getId()
+        );
+    }
+
 
 }

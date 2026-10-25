@@ -112,9 +112,9 @@ Paleidus programą galima patikrinti skirtingų bendrabučių duomenų atskyrim�
 
 ## Automatiniai testai
 
-Projekte naudojami JUnit 5 automatiniai testai. Šiuo metu įgyvendinta **17 automatinių testų**:
+Projekte naudojami JUnit 5 automatiniai testai. Šiuo metu įgyvendinta **20 automatinių testų**:
 
-- 16 testų `ReservationServiceTest.java`.
+- 19 testų `ReservationServiceTest.java`.
 - 1 testas `WashingMachineTest.java`.
 
 Testai tikrina:
