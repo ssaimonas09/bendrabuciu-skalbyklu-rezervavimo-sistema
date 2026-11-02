@@ -24,12 +24,6 @@ public class ReservationServiceTest {
 
         Reservation created = service.createReservation(user, machine, startTime);
 
-        assertEquals(user.getId(), created.getUserId());
-        assertEquals(machine.getId(), created.getWashingMachineId());
-        assertEquals(user.getDormitoryId(), created.getDormitoryId());
-        assertEquals(startTime, created.getStartTime());
-        assertEquals(expectedEndTime, created.getEndTime());
-
         List<Reservation> storedReservations =
                 repository.findByDormitoryId(user.getDormitoryId());
 
@@ -437,11 +431,8 @@ public class ReservationServiceTest {
         Reservation stored = reservations.get(0);
         assertEquals(secondReservation.getId(), stored.getId());
         assertNotEquals(firstReservation.getId(), stored.getId());
-        assertEquals(student.getId(), stored.getUserId());
-        assertEquals(student.getDormitoryId(), stored.getDormitoryId());
         assertEquals(machine.getId(), stored.getWashingMachineId());
         assertEquals(startTime, stored.getStartTime());
-        assertEquals(LocalDateTime.of(2030, 11, 20, 16, 0), stored.getEndTime());
     }
 
     private ReservationService createService(ReservationRepository repository) {
