@@ -1,6 +1,4 @@
-
 public class WashingMachine {
-
     private final int id;
     private final int dormitoryId;
 

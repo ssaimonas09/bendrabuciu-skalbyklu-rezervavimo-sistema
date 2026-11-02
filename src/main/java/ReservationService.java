@@ -1,13 +1,9 @@
-
-import java.time.LocalDateTime;
 import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-
 public class ReservationService {
-
-
     private final ReservationRepository repository;
     private final Clock clock;
 
@@ -20,12 +16,9 @@ public class ReservationService {
         this.clock = clock;
     }
 
-
-
     public Reservation createReservation(User user,
                                          WashingMachine machine,
                                          LocalDateTime startTime) {
-
         if (user.getDormitoryId() != machine.getDormitoryId()) {
             throw new IllegalArgumentException(
                     "Negalima rezervuoti kito bendrabučio mašinos."
@@ -40,8 +33,6 @@ public class ReservationService {
             );
         }
 
-
-
         LocalDateTime openingTime = startTime.toLocalDate().atTime(7, 0);
         LocalDateTime closingTime = startTime.toLocalDate().atTime(23, 0);
 
@@ -51,24 +42,19 @@ public class ReservationService {
             );
         }
 
-
         if (hasMachineConflict(user.getDormitoryId(),
                 machine.getId(), startTime, endTime)) {
-
             throw new IllegalArgumentException(
                     "Pasirinktas laikas jau užimtas."
             );
         }
 
-
         if (hasUserConflict(user.getDormitoryId(),
                 user.getId(), startTime, endTime)) {
-
             throw new IllegalArgumentException(
                     "Studentas jau turi rezervaciją šiuo laiku."
             );
         }
-
 
         Reservation reservation = new Reservation(
                 repository.generateId(),
@@ -81,19 +67,15 @@ public class ReservationService {
 
         repository.save(reservation);
 
-
         return reservation;
     }
 
     private boolean hasMachineConflict(int dormitoryId, int machineId,
                                        LocalDateTime start, LocalDateTime end) {
-
         for (Reservation existing : repository.findByDormitoryId(dormitoryId)) {
-
             boolean sameMachine = existing.getWashingMachineId() == machineId;
 
-            boolean overlaps = start.isBefore(existing.getEndTime())
-                    && end.isAfter(existing.getStartTime());
+            boolean overlaps = overlapsExistingReservation(start, end, existing);
 
             if (sameMachine && overlaps) {
                 return true;
@@ -103,16 +85,12 @@ public class ReservationService {
         return false;
     }
 
-
     private boolean hasUserConflict(int dormitoryId, int userId,
                                     LocalDateTime start, LocalDateTime end) {
-
         for (Reservation existing : repository.findByDormitoryId(dormitoryId)) {
-
             boolean sameUser = existing.getUserId() == userId;
 
-            boolean overlaps = start.isBefore(existing.getEndTime())
-                    && end.isAfter(existing.getStartTime());
+            boolean overlaps = overlapsExistingReservation(start, end, existing);
 
             if (sameUser && overlaps) {
                 return true;
@@ -122,13 +100,17 @@ public class ReservationService {
         return false;
     }
 
-    public List<Reservation> getMyReservations(User user) {
+    private boolean overlapsExistingReservation(LocalDateTime start, LocalDateTime end,
+                                                Reservation existing) {
+        return start.isBefore(existing.getEndTime())
+                && end.isAfter(existing.getStartTime());
+    }
 
+    public List<Reservation> getMyReservations(User user) {
         List<Reservation> myReservations = new ArrayList<>();
 
         for (Reservation reservation :
                 repository.findByDormitoryId(user.getDormitoryId())) {
-
             if (reservation.getUserId() == user.getId()) {
                 myReservations.add(reservation);
             }
@@ -137,15 +119,11 @@ public class ReservationService {
         return myReservations;
     }
 
-
     public void cancelReservation(User user, int reservationId) {
-
         for (Reservation reservation :
                 repository.findByDormitoryId(user.getDormitoryId())) {
-
             if (reservation.getId() == reservationId
                     && reservation.getUserId() == user.getId()) {
-
                 repository.delete(reservation);
                 return;
             }
@@ -155,7 +133,4 @@ public class ReservationService {
                 "Rezervacija nerasta arba neturite teisės jos atšaukti."
         );
     }
-
-
-
 }

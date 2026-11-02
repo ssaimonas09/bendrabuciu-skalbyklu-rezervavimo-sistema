@@ -1,9 +1,7 @@
-
 import java.util.ArrayList;
 import java.util.List;
 
 public class ReservationRepository {
-
     private final List<Reservation> reservations = new ArrayList<>();
 
     private int nextId = 1;
@@ -17,7 +15,6 @@ public class ReservationRepository {
     }
 
     public List<Reservation> findByDormitoryId(int dormitoryId) {
-
         List<Reservation> result = new ArrayList<>();
 
         for (Reservation reservation : reservations) {
@@ -32,5 +29,4 @@ public class ReservationRepository {
     public void delete(Reservation reservation) {
         reservations.remove(reservation);
     }
-
 }

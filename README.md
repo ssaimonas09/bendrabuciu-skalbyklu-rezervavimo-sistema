@@ -217,8 +217,7 @@ Sėkmingai įvykdžius testus, Maven pateikia `BUILD SUCCESS`. Naujausią rezult
     │   ├── ReservationRepository.java
     │   ├── Reservation.java
     │   ├── User.java
-    │   ├── WashingMachine.java
-    │   └── Dormitory.java
+    │   └── WashingMachine.java
     └── test/java/
         ├── ReservationServiceTest.java
         └── WashingMachineTest.java
@@ -232,7 +231,6 @@ Sėkmingai įvykdžius testus, Maven pateikia `BUILD SUCCESS`. Naujausią rezult
 | `Reservation` | Rezervacijos ID, studento, bendrabučio, mašinos ir laiko duomenys |
 | `User` | Studento ID, vardas ir bendrabučio ID |
 | `WashingMachine` | Skalbimo mašinos ID ir jos bendrabučio ID |
-| `Dormitory` | Bendrabučio ID ir pavadinimo modelis; dabartinėje rezervavimo logikoje nenaudojamas |
 | `ReservationServiceTest` | Rezervavimo logikos ir duomenų izoliavimo testai |
 | `WashingMachineTest` | Skalbimo mašinos modelio testas |
 | `pom.xml` | Maven ir JUnit projekto nustatymai |
@@ -259,7 +257,6 @@ Projektas sąmoningai paliktas paprastas: nenaudojami papildomi karkasai, sudėt
 - Atskiros laisvų rezervavimo laikų peržiūros funkcijos nėra.
 - „Mano rezervacijos“ sąraše jau praėjusios rezervacijos nefiltruojamos.
 - Atšaukiant rezervaciją tikrinama jos priklausomybė studentui, bet **netikrinama**, ar rezervacija jau prasidėjusi.
-- `Dormitory` modelis yra projekte, tačiau kol kas nėra naudojamas pagrindinėje rezervavimo logikoje; bendrabučiui atskirti naudojamas `dormitoryId`.
 
 I etapo projektavimo dokumente numatytas platesnis funkcionalumas gali būti plėtojamas vėlesniuose projekto etapuose.
 

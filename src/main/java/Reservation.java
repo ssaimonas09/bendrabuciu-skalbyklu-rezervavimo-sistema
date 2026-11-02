@@ -1,8 +1,6 @@
-
 import java.time.LocalDateTime;
 
 public class Reservation {
-
     private final int id;
     private final int dormitoryId;
     private final int userId;
