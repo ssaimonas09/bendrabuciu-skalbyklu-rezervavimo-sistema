@@ -16,25 +16,28 @@ public class ReservationServiceTest {
         ReservationRepository repository = new ReservationRepository();
         ReservationService service = createService(repository);
 
-        User user = new User(101, "Studentas A", 1);
-        WashingMachine machine = new WashingMachine(2, 1);
+        int dormitoryId = 1;
+        int studentId = 101;
+        int machineId = 2;
+
+        User student = new User(studentId, "Student A", dormitoryId);
+        WashingMachine machine = new WashingMachine(machineId, dormitoryId);
 
         LocalDateTime startTime = LocalDateTime.of(2030, 11, 20, 15, 0);
         LocalDateTime expectedEndTime = LocalDateTime.of(2030, 11, 20, 16, 0);
 
-        Reservation created = service.createReservation(user, machine, startTime);
+        Reservation reservation = service.createReservation(student, machine, startTime);
 
-        List<Reservation> storedReservations =
-                repository.findByDormitoryId(user.getDormitoryId());
+        List<Reservation> storedReservations = repository.findByDormitoryId(dormitoryId);
 
         assertEquals(1, storedReservations.size());
-        Reservation stored = storedReservations.get(0);
-        assertEquals(created.getId(), stored.getId());
-        assertEquals(user.getId(), stored.getUserId());
-        assertEquals(machine.getId(), stored.getWashingMachineId());
-        assertEquals(user.getDormitoryId(), stored.getDormitoryId());
-        assertEquals(startTime, stored.getStartTime());
-        assertEquals(expectedEndTime, stored.getEndTime());
+        Reservation storedReservation = storedReservations.get(0);
+        assertEquals(reservation.getId(), storedReservation.getId());
+        assertEquals(student.getId(), storedReservation.getUserId());
+        assertEquals(machine.getId(), storedReservation.getWashingMachineId());
+        assertEquals(student.getDormitoryId(), storedReservation.getDormitoryId());
+        assertEquals(startTime, storedReservation.getStartTime());
+        assertEquals(expectedEndTime, storedReservation.getEndTime());
     }
 
     @Test
@@ -42,19 +45,21 @@ public class ReservationServiceTest {
         ReservationRepository repository = new ReservationRepository();
         ReservationService service = createService(repository);
 
-        User user = new User(101, "Studentas A", 1);
-        WashingMachine machine = new WashingMachine(5, 2);
+        int dormitoryAId = 1;
+        int dormitoryBId = 2;
+        int studentId = 101;
+        int machineId = 5;
+
+        User student = new User(studentId, "Student A", dormitoryAId);
+        WashingMachine machine = new WashingMachine(machineId, dormitoryBId);
+
+        LocalDateTime startTime = LocalDateTime.of(2030, 11, 20, 15, 0);
 
         assertThrows(IllegalArgumentException.class, () ->
-                service.createReservation(
-                        user,
-                        machine,
-                        LocalDateTime.of(2030, 11, 20, 15, 0)
-                )
-        );
+                service.createReservation(student, machine, startTime));
 
-        assertEquals(0, repository.findByDormitoryId(user.getDormitoryId()).size());
-        assertEquals(0, repository.findByDormitoryId(machine.getDormitoryId()).size());
+        assertEquals(0, repository.findByDormitoryId(dormitoryAId).size());
+        assertEquals(0, repository.findByDormitoryId(dormitoryBId).size());
     }
 
     @Test
@@ -62,21 +67,23 @@ public class ReservationServiceTest {
         ReservationRepository repository = new ReservationRepository();
         ReservationService service = createService(repository);
 
-        User studentA = new User(101, "Studentas A", 1);
-        User studentB = new User(102, "Studentas B", 1);
-        WashingMachine machine = new WashingMachine(2, 1);
+        int dormitoryId = 1;
+        int studentAId = 101;
+        int studentBId = 102;
+        int machineId = 2;
 
-        LocalDateTime start = LocalDateTime.of(2030, 11, 20, 15, 0);
+        User studentA = new User(studentAId, "Student A", dormitoryId);
+        User studentB = new User(studentBId, "Student B", dormitoryId);
+        WashingMachine machine = new WashingMachine(machineId, dormitoryId);
 
-        service.createReservation(studentA, machine, start);
+        LocalDateTime startTime = LocalDateTime.of(2030, 11, 20, 15, 0);
+
+        service.createReservation(studentA, machine, startTime);
 
         assertThrows(IllegalArgumentException.class, () ->
-                service.createReservation(
-                        studentB, machine, start.plusMinutes(30)
-                )
-        );
+                service.createReservation(studentB, machine, startTime.plusMinutes(30)));
 
-        assertEquals(1, repository.findByDormitoryId(1).size());
+        assertEquals(1, repository.findByDormitoryId(dormitoryId).size());
     }
 
     @Test
@@ -84,16 +91,21 @@ public class ReservationServiceTest {
         ReservationRepository repository = new ReservationRepository();
         ReservationService service = createService(repository);
 
-        User studentA = new User(101, "Studentas A", 1);
-        User studentB = new User(102, "Studentas B", 1);
-        WashingMachine machine = new WashingMachine(2, 1);
+        int dormitoryId = 1;
+        int studentAId = 101;
+        int studentBId = 102;
+        int machineId = 2;
 
-        LocalDateTime start = LocalDateTime.of(2030, 11, 20, 15, 0);
+        User studentA = new User(studentAId, "Student A", dormitoryId);
+        User studentB = new User(studentBId, "Student B", dormitoryId);
+        WashingMachine machine = new WashingMachine(machineId, dormitoryId);
 
-        service.createReservation(studentA, machine, start);
-        service.createReservation(studentB, machine, start.plusHours(1));
+        LocalDateTime startTime = LocalDateTime.of(2030, 11, 20, 15, 0);
 
-        assertEquals(2, repository.findByDormitoryId(1).size());
+        service.createReservation(studentA, machine, startTime);
+        service.createReservation(studentB, machine, startTime.plusHours(1));
+
+        assertEquals(2, repository.findByDormitoryId(dormitoryId).size());
     }
 
     @Test
@@ -101,17 +113,19 @@ public class ReservationServiceTest {
         ReservationRepository repository = new ReservationRepository();
         ReservationService service = createService(repository);
 
-        User user = new User(101, "Studentas A", 1);
-        WashingMachine machine = new WashingMachine(2, 1);
+        int dormitoryId = 1;
+        int studentId = 101;
+        int machineId = 2;
+
+        User student = new User(studentId, "Student A", dormitoryId);
+        WashingMachine machine = new WashingMachine(machineId, dormitoryId);
+
+        LocalDateTime startTime = LocalDateTime.of(2030, 11, 20, 6, 30);
 
         assertThrows(IllegalArgumentException.class, () ->
-                service.createReservation(
-                        user, machine,
-                        LocalDateTime.of(2030, 11, 20, 6, 30)
-                )
-        );
+                service.createReservation(student, machine, startTime));
 
-        assertEquals(0, repository.findByDormitoryId(1).size());
+        assertEquals(0, repository.findByDormitoryId(dormitoryId).size());
     }
 
     @Test
@@ -119,17 +133,19 @@ public class ReservationServiceTest {
         ReservationRepository repository = new ReservationRepository();
         ReservationService service = createService(repository);
 
-        User user = new User(101, "Studentas A", 1);
-        WashingMachine machine = new WashingMachine(2, 1);
+        int dormitoryId = 1;
+        int studentId = 101;
+        int machineId = 2;
+
+        User student = new User(studentId, "Student A", dormitoryId);
+        WashingMachine machine = new WashingMachine(machineId, dormitoryId);
+
+        LocalDateTime startTime = LocalDateTime.of(2030, 11, 20, 22, 30);
 
         assertThrows(IllegalArgumentException.class, () ->
-                service.createReservation(
-                        user, machine,
-                        LocalDateTime.of(2030, 11, 20, 22, 30)
-                )
-        );
+                service.createReservation(student, machine, startTime));
 
-        assertEquals(0, repository.findByDormitoryId(1).size());
+        assertEquals(0, repository.findByDormitoryId(dormitoryId).size());
     }
 
     @Test
@@ -137,16 +153,20 @@ public class ReservationServiceTest {
         ReservationRepository repository = new ReservationRepository();
         ReservationService service = createService(repository);
 
-        User user = new User(101, "Studentas A", 1);
-        WashingMachine machine = new WashingMachine(2, 1);
+        int dormitoryId = 1;
+        int studentId = 101;
+        int machineId = 2;
 
-        Reservation reservation = service.createReservation(
-                user, machine,
-                LocalDateTime.of(2030, 11, 20, 22, 0)
-        );
+        User student = new User(studentId, "Student A", dormitoryId);
+        WashingMachine machine = new WashingMachine(machineId, dormitoryId);
 
-        assertEquals(1, repository.findByDormitoryId(1).size());
-        assertEquals(LocalDateTime.of(2030, 11, 20, 23, 0), reservation.getEndTime());
+        LocalDateTime startTime = LocalDateTime.of(2030, 11, 20, 22, 0);
+        LocalDateTime expectedEndTime = LocalDateTime.of(2030, 11, 20, 23, 0);
+
+        Reservation reservation = service.createReservation(student, machine, startTime);
+
+        assertEquals(1, repository.findByDormitoryId(dormitoryId).size());
+        assertEquals(expectedEndTime, reservation.getEndTime());
     }
 
     @Test
@@ -154,17 +174,19 @@ public class ReservationServiceTest {
         ReservationRepository repository = new ReservationRepository();
         ReservationService service = createService(repository);
 
-        User user = new User(101, "Studentas A", 1);
-        WashingMachine machine = new WashingMachine(2, 1);
+        int dormitoryId = 1;
+        int studentId = 101;
+        int machineId = 2;
+
+        User student = new User(studentId, "Student A", dormitoryId);
+        WashingMachine machine = new WashingMachine(machineId, dormitoryId);
+
+        LocalDateTime startTime = LocalDateTime.of(2030, 11, 19, 11, 0);
 
         assertThrows(IllegalArgumentException.class, () ->
-                service.createReservation(
-                        user, machine,
-                        LocalDateTime.of(2030, 11, 19, 11, 0)
-                )
-        );
+                service.createReservation(student, machine, startTime));
 
-        assertEquals(0, repository.findByDormitoryId(1).size());
+        assertEquals(0, repository.findByDormitoryId(dormitoryId).size());
     }
 
     @Test
@@ -172,17 +194,19 @@ public class ReservationServiceTest {
         ReservationRepository repository = new ReservationRepository();
         ReservationService service = createService(repository);
 
-        User user = new User(101, "Studentas A", 1);
-        WashingMachine machine = new WashingMachine(2, 1);
+        int dormitoryId = 1;
+        int studentId = 101;
+        int machineId = 2;
+
+        User student = new User(studentId, "Student A", dormitoryId);
+        WashingMachine machine = new WashingMachine(machineId, dormitoryId);
+
+        LocalDateTime startTime = LocalDateTime.of(2030, 11, 19, 12, 0);
 
         assertThrows(IllegalArgumentException.class, () ->
-                service.createReservation(
-                        user, machine,
-                        LocalDateTime.of(2030, 11, 19, 12, 0)
-                )
-        );
+                service.createReservation(student, machine, startTime));
 
-        assertEquals(0, repository.findByDormitoryId(1).size());
+        assertEquals(0, repository.findByDormitoryId(dormitoryId).size());
     }
 
     @Test
@@ -190,22 +214,23 @@ public class ReservationServiceTest {
         ReservationRepository repository = new ReservationRepository();
         ReservationService service = createService(repository);
 
-        User student = new User(101, "Studentas A", 1);
+        int dormitoryId = 1;
+        int studentId = 101;
+        int machineAId = 2;
+        int machineBId = 3;
 
-        WashingMachine machineA = new WashingMachine(2, 1);
-        WashingMachine machineB = new WashingMachine(3, 1);
+        User student = new User(studentId, "Student A", dormitoryId);
+        WashingMachine machineA = new WashingMachine(machineAId, dormitoryId);
+        WashingMachine machineB = new WashingMachine(machineBId, dormitoryId);
 
-        LocalDateTime start = LocalDateTime.of(2030, 11, 20, 15, 0);
+        LocalDateTime startTime = LocalDateTime.of(2030, 11, 20, 15, 0);
 
-        service.createReservation(student, machineA, start);
+        service.createReservation(student, machineA, startTime);
 
         assertThrows(IllegalArgumentException.class, () ->
-                service.createReservation(
-                        student, machineB, start.plusMinutes(30)
-                )
-        );
+                service.createReservation(student, machineB, startTime.plusMinutes(30)));
 
-        assertEquals(1, repository.findByDormitoryId(1).size());
+        assertEquals(1, repository.findByDormitoryId(dormitoryId).size());
     }
 
     @Test
@@ -213,17 +238,21 @@ public class ReservationServiceTest {
         ReservationRepository repository = new ReservationRepository();
         ReservationService service = createService(repository);
 
-        User student = new User(101, "Studentas A", 1);
+        int dormitoryId = 1;
+        int studentId = 101;
+        int machineAId = 2;
+        int machineBId = 3;
 
-        WashingMachine machineA = new WashingMachine(2, 1);
-        WashingMachine machineB = new WashingMachine(3, 1);
+        User student = new User(studentId, "Student A", dormitoryId);
+        WashingMachine machineA = new WashingMachine(machineAId, dormitoryId);
+        WashingMachine machineB = new WashingMachine(machineBId, dormitoryId);
 
-        LocalDateTime start = LocalDateTime.of(2030, 11, 20, 15, 0);
+        LocalDateTime startTime = LocalDateTime.of(2030, 11, 20, 15, 0);
 
-        service.createReservation(student, machineA, start);
-        service.createReservation(student, machineB, start.plusHours(1));
+        service.createReservation(student, machineA, startTime);
+        service.createReservation(student, machineB, startTime.plusHours(1));
 
-        assertEquals(2, repository.findByDormitoryId(1).size());
+        assertEquals(2, repository.findByDormitoryId(dormitoryId).size());
     }
 
     @Test
@@ -231,22 +260,23 @@ public class ReservationServiceTest {
         ReservationRepository repository = new ReservationRepository();
         ReservationService service = createService(repository);
 
-        User studentInDormitoryA = new User(101, "Studentas A", 1);
-        User studentInDormitoryB = new User(101, "Studentas B", 2);
+        int dormitoryAId = 1;
+        int dormitoryBId = 2;
+        int sharedStudentId = 101;
+        int sharedMachineId = 2;
 
-        WashingMachine machineInDormitoryA = new WashingMachine(2, 1);
-        WashingMachine machineInDormitoryB = new WashingMachine(2, 2);
+        User studentA = new User(sharedStudentId, "Student A", dormitoryAId);
+        User studentB = new User(sharedStudentId, "Student B", dormitoryBId);
+        WashingMachine machineA = new WashingMachine(sharedMachineId, dormitoryAId);
+        WashingMachine machineB = new WashingMachine(sharedMachineId, dormitoryBId);
 
-        LocalDateTime start = LocalDateTime.of(2030, 11, 20, 15, 0);
+        LocalDateTime startTime = LocalDateTime.of(2030, 11, 20, 15, 0);
 
-        Reservation reservationA =
-                service.createReservation(studentInDormitoryA, machineInDormitoryA, start);
+        Reservation reservationA = service.createReservation(studentA, machineA, startTime);
+        Reservation reservationB = service.createReservation(studentB, machineB, startTime);
 
-        Reservation reservationB =
-                service.createReservation(studentInDormitoryB, machineInDormitoryB, start);
-
-        List<Reservation> reservationsA = service.getMyReservations(studentInDormitoryA);
-        List<Reservation> reservationsB = service.getMyReservations(studentInDormitoryB);
+        List<Reservation> reservationsA = service.getMyReservations(studentA);
+        List<Reservation> reservationsB = service.getMyReservations(studentB);
 
         assertEquals(1, reservationsA.size());
         assertEquals(reservationA.getId(), reservationsA.get(0).getId());
@@ -259,24 +289,25 @@ public class ReservationServiceTest {
         ReservationRepository repository = new ReservationRepository();
         ReservationService service = createService(repository);
 
-        User studentInDormitoryA = new User(101, "Studentas A", 1);
-        User studentInDormitoryB = new User(101, "Studentas B", 2);
+        int dormitoryAId = 1;
+        int dormitoryBId = 2;
+        int sharedStudentId = 101;
+        int machineBId = 2;
 
-        WashingMachine machineInDormitoryB = new WashingMachine(2, 2);
+        User studentA = new User(sharedStudentId, "Student A", dormitoryAId);
+        User studentB = new User(sharedStudentId, "Student B", dormitoryBId);
+        WashingMachine machineB = new WashingMachine(machineBId, dormitoryBId);
 
-        Reservation reservationB = service.createReservation(
-                studentInDormitoryB, machineInDormitoryB,
-                LocalDateTime.of(2030, 11, 20, 15, 0)
-        );
+        LocalDateTime startTime = LocalDateTime.of(2030, 11, 20, 15, 0);
+        Reservation reservationB = service.createReservation(studentB, machineB, startTime);
 
         assertThrows(IllegalArgumentException.class, () ->
-                service.cancelReservation(studentInDormitoryA, reservationB.getId())
-        );
+                service.cancelReservation(studentA, reservationB.getId()));
 
-        List<Reservation> reservations = service.getMyReservations(studentInDormitoryB);
+        List<Reservation> reservationsB = service.getMyReservations(studentB);
 
-        assertEquals(1, reservations.size());
-        assertEquals(reservationB.getId(), reservations.get(0).getId());
+        assertEquals(1, reservationsB.size());
+        assertEquals(reservationB.getId(), reservationsB.get(0).getId());
     }
 
     @Test
@@ -284,26 +315,27 @@ public class ReservationServiceTest {
         ReservationRepository repository = new ReservationRepository();
         ReservationService service = createService(repository);
 
-        User studentA = new User(101, "Studentas A", 1);
-        WashingMachine machineA = new WashingMachine(2, 1);
+        int dormitoryId = 1;
+        int studentAId = 101;
+        int studentBId = 102;
+        int machineId = 2;
 
-        Reservation reservation = service.createReservation(
-                studentA, machineA,
-                LocalDateTime.of(2030, 11, 20, 15, 0)
-        );
+        User studentA = new User(studentAId, "Student A", dormitoryId);
+        User studentB = new User(studentBId, "Student B", dormitoryId);
+        WashingMachine machine = new WashingMachine(machineId, dormitoryId);
 
-        User otherStudent = new User(102, "Studentas C", 1);
-        Reservation otherReservation = service.createReservation(
-                otherStudent, machineA,
-                LocalDateTime.of(2030, 11, 20, 16, 0)
-        );
+        LocalDateTime startTime = LocalDateTime.of(2030, 11, 20, 15, 0);
 
-        service.cancelReservation(studentA, reservation.getId());
+        Reservation reservationA = service.createReservation(studentA, machine, startTime);
+        Reservation reservationB = service.createReservation(studentB, machine, startTime.plusHours(1));
+
+        service.cancelReservation(studentA, reservationA.getId());
+
+        List<Reservation> storedReservations = repository.findByDormitoryId(dormitoryId);
 
         assertEquals(0, service.getMyReservations(studentA).size());
-        List<Reservation> remaining = repository.findByDormitoryId(studentA.getDormitoryId());
-        assertEquals(1, remaining.size());
-        assertEquals(otherReservation.getId(), remaining.get(0).getId());
+        assertEquals(1, storedReservations.size());
+        assertEquals(reservationB.getId(), storedReservations.get(0).getId());
     }
 
     @Test
@@ -311,24 +343,26 @@ public class ReservationServiceTest {
         ReservationRepository repository = new ReservationRepository();
         ReservationService service = createService(repository);
 
-        User studentA = new User(101, "Studentas A", 1);
-        User studentC = new User(102, "Studentas C", 1);
+        int dormitoryId = 1;
+        int studentAId = 101;
+        int studentBId = 102;
+        int machineAId = 2;
+        int machineBId = 3;
 
-        WashingMachine machine2 = new WashingMachine(2, 1);
-        WashingMachine machine3 = new WashingMachine(3, 1);
+        User studentA = new User(studentAId, "Student A", dormitoryId);
+        User studentB = new User(studentBId, "Student B", dormitoryId);
+        WashingMachine machineA = new WashingMachine(machineAId, dormitoryId);
+        WashingMachine machineB = new WashingMachine(machineBId, dormitoryId);
 
-        LocalDateTime startTime =
-                LocalDateTime.of(2030, 11, 20, 15, 0);
+        LocalDateTime startTime = LocalDateTime.of(2030, 11, 20, 15, 0);
 
-        service.createReservation(studentC, machine2, startTime);
-        Reservation reservationA =
-                service.createReservation(studentA, machine3, startTime);
+        service.createReservation(studentB, machineA, startTime);
+        Reservation reservationA = service.createReservation(studentA, machineB, startTime);
 
-        List<Reservation> reservations =
-                service.getMyReservations(studentA);
+        List<Reservation> reservationsA = service.getMyReservations(studentA);
 
-        assertEquals(1, reservations.size());
-        assertEquals(reservationA.getId(), reservations.get(0).getId());
+        assertEquals(1, reservationsA.size());
+        assertEquals(reservationA.getId(), reservationsA.get(0).getId());
     }
 
     @Test
@@ -336,47 +370,47 @@ public class ReservationServiceTest {
         ReservationRepository repository = new ReservationRepository();
         ReservationService service = createService(repository);
 
-        User studentA = new User(101, "Studentas A", 1);
-        User studentC = new User(102, "Studentas C", 1);
+        int dormitoryId = 1;
+        int studentAId = 101;
+        int studentBId = 102;
+        int machineId = 2;
 
-        WashingMachine machine = new WashingMachine(2, 1);
+        User studentA = new User(studentAId, "Student A", dormitoryId);
+        User studentB = new User(studentBId, "Student B", dormitoryId);
+        WashingMachine machine = new WashingMachine(machineId, dormitoryId);
 
-        LocalDateTime startTime =
-                LocalDateTime.of(2030, 11, 20, 15, 0);
+        LocalDateTime startTime = LocalDateTime.of(2030, 11, 20, 15, 0);
 
-        Reservation reservationC =
-                service.createReservation(studentC, machine, startTime);
+        Reservation reservationB = service.createReservation(studentB, machine, startTime);
 
         assertThrows(IllegalArgumentException.class, () ->
-                service.cancelReservation(studentA, reservationC.getId())
-        );
+                service.cancelReservation(studentA, reservationB.getId()));
 
-        List<Reservation> reservations =
-                service.getMyReservations(studentC);
+        List<Reservation> reservationsB = service.getMyReservations(studentB);
 
-        assertEquals(1, reservations.size());
-        assertEquals(reservationC.getId(), reservations.get(0).getId());
+        assertEquals(1, reservationsB.size());
+        assertEquals(reservationB.getId(), reservationsB.get(0).getId());
     }
 
     @Test
-    void allowsReservationStartingAtSeven() {
+    void allowsReservationStartingAtOpeningTime() {
         ReservationRepository repository = new ReservationRepository();
         ReservationService service = createService(repository);
 
-        User student = new User(101, "Studentas A", 1);
-        WashingMachine machine = new WashingMachine(2, 1);
+        int dormitoryId = 1;
+        int studentId = 101;
+        int machineId = 2;
 
-        LocalDateTime startTime =
-                LocalDateTime.of(2030, 11, 20, 7, 0);
+        User student = new User(studentId, "Student A", dormitoryId);
+        WashingMachine machine = new WashingMachine(machineId, dormitoryId);
 
-        Reservation reservation =
-                service.createReservation(student, machine, startTime);
+        LocalDateTime startTime = LocalDateTime.of(2030, 11, 20, 7, 0);
+        LocalDateTime expectedEndTime = LocalDateTime.of(2030, 11, 20, 8, 0);
+
+        Reservation reservation = service.createReservation(student, machine, startTime);
 
         assertEquals(startTime, reservation.getStartTime());
-        assertEquals(
-                LocalDateTime.of(2030, 11, 20, 8, 0),
-                reservation.getEndTime()
-        );
+        assertEquals(expectedEndTime, reservation.getEndTime());
     }
 
     @Test
@@ -384,26 +418,27 @@ public class ReservationServiceTest {
         ReservationRepository repository = new ReservationRepository();
         ReservationService service = createService(repository);
 
-        User studentA = new User(101, "Studentas A", 1);
-        User studentC = new User(102, "Studentas C", 1);
+        int dormitoryId = 1;
+        int studentAId = 101;
+        int studentBId = 102;
+        int machineId = 2;
 
-        WashingMachine machine = new WashingMachine(2, 1);
+        User studentA = new User(studentAId, "Student A", dormitoryId);
+        User studentB = new User(studentBId, "Student B", dormitoryId);
+        WashingMachine machine = new WashingMachine(machineId, dormitoryId);
 
-        LocalDateTime existingStart =
-                LocalDateTime.of(2030, 11, 20, 15, 0);
+        LocalDateTime existingStartTime = LocalDateTime.of(2030, 11, 20, 15, 0);
+        LocalDateTime overlappingStartTime = LocalDateTime.of(2030, 11, 20, 14, 30);
 
-        LocalDateTime newStart =
-                LocalDateTime.of(2030, 11, 20, 14, 30);
-
-        Reservation existing = service.createReservation(studentA, machine, existingStart);
+        Reservation existingReservation = service.createReservation(studentA, machine, existingStartTime);
 
         assertThrows(IllegalArgumentException.class, () ->
-                service.createReservation(studentC, machine, newStart)
-        );
+                service.createReservation(studentB, machine, overlappingStartTime));
 
-        List<Reservation> reservations = repository.findByDormitoryId(studentA.getDormitoryId());
-        assertEquals(1, reservations.size());
-        assertEquals(existing.getId(), reservations.get(0).getId());
+        List<Reservation> storedReservations = repository.findByDormitoryId(dormitoryId);
+
+        assertEquals(1, storedReservations.size());
+        assertEquals(existingReservation.getId(), storedReservations.get(0).getId());
     }
 
     @Test
@@ -411,28 +446,29 @@ public class ReservationServiceTest {
         ReservationRepository repository = new ReservationRepository();
         ReservationService service = createService(repository);
 
-        User student = new User(101, "Studentas A", 1);
-        WashingMachine machine = new WashingMachine(2, 1);
+        int dormitoryId = 1;
+        int studentId = 101;
+        int machineId = 2;
 
-        LocalDateTime startTime =
-                LocalDateTime.of(2030, 11, 20, 15, 0);
+        User student = new User(studentId, "Student A", dormitoryId);
+        WashingMachine machine = new WashingMachine(machineId, dormitoryId);
 
-        Reservation firstReservation =
-                service.createReservation(student, machine, startTime);
+        LocalDateTime startTime = LocalDateTime.of(2030, 11, 20, 15, 0);
 
-        service.cancelReservation(student, firstReservation.getId());
+        Reservation cancelledReservation = service.createReservation(student, machine, startTime);
 
-        Reservation secondReservation =
-                service.createReservation(student, machine, startTime);
+        service.cancelReservation(student, cancelledReservation.getId());
+
+        Reservation replacementReservation = service.createReservation(student, machine, startTime);
 
         List<Reservation> reservations = service.getMyReservations(student);
 
         assertEquals(1, reservations.size());
-        Reservation stored = reservations.get(0);
-        assertEquals(secondReservation.getId(), stored.getId());
-        assertNotEquals(firstReservation.getId(), stored.getId());
-        assertEquals(machine.getId(), stored.getWashingMachineId());
-        assertEquals(startTime, stored.getStartTime());
+        Reservation storedReservation = reservations.get(0);
+        assertEquals(replacementReservation.getId(), storedReservation.getId());
+        assertNotEquals(cancelledReservation.getId(), storedReservation.getId());
+        assertEquals(machine.getId(), storedReservation.getWashingMachineId());
+        assertEquals(startTime, storedReservation.getStartTime());
     }
 
     private ReservationService createService(ReservationRepository repository) {

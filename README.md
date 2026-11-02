@@ -125,10 +125,7 @@ Skirtingų studentų privatumas **tame pačiame bendrabutyje** taip pat tikrinam
 
 ## Automatiniai testai (JUnit 5)
 
-Iš viso projekte yra **20 automatinių testų**:
-
-- **19** testų faile `src/test/java/ReservationServiceTest.java`;
-- **1** testas faile `src/test/java/WashingMachineTest.java`.
+Iš viso projekte yra **19 automatinių testų**, visi faile `src/test/java/ReservationServiceTest.java`.
 
 ### Rezervacijų kūrimas ir konfliktai – 7 testai
 
@@ -151,7 +148,7 @@ Iš viso projekte yra **20 automatinių testų**:
 | 10 | `allowsReservationEndingAtClosingTime()` | Leidžiama rezervacija nuo 22:00 iki 23:00. |
 | 11 | `rejectsPastReservation()` | Neleidžiama kurti rezervacijos praeityje. |
 | 12 | `rejectsReservationAtCurrentTime()` | Neleidžiama kurti rezervacijos, prasidedančios tiksliai dabartiniu momentu. |
-| 13 | `allowsReservationStartingAtSeven()` | Leidžiama rezervacija tiksliai 07:00–08:00; tikrinamas jos pradžios ir pabaigos laikas. |
+| 13 | `allowsReservationStartingAtOpeningTime()` | Leidžiama rezervacija tiksliai 07:00–08:00; tikrinamas jos pradžios ir pabaigos laikas. |
 
 ### Studentų ir bendrabučių duomenų atskyrimas – 4 testai
 
@@ -168,12 +165,6 @@ Iš viso projekte yra **20 automatinių testų**:
 |---:|---|---|
 | 18 | `ownerCanCancelOwnReservation()` | Studentas gali atšaukti savo rezervaciją; ji dingsta, o kito studento rezervacija išlieka. |
 | 19 | `allowsReservationAfterCancellation()` | Atšaukus rezervaciją galima iš naujo rezervuoti tą pačią mašiną tuo pačiu laiku. |
-
-### Skalbimo mašinos duomenys – 1 testas
-
-| Nr. | Testo metodas | Ką tikrina |
-|---:|---|---|
-| 20 | `washingMachineHasCorrectDormitory()` | `WashingMachine` objektas teisingai grąžina jam priskirtą bendrabučio ID. |
 
 ### Kaip veikia testai?
 
@@ -221,8 +212,7 @@ Sėkmingai įvykdžius testus, Maven pateikia `BUILD SUCCESS`. Naujausią rezult
     │   ├── User.java
     │   └── WashingMachine.java
     └── test/java/
-        ├── ReservationServiceTest.java
-        └── WashingMachineTest.java
+        └── ReservationServiceTest.java
 ```
 
 | Failas / klasė | Pagrindinė atsakomybė |
@@ -234,7 +224,6 @@ Sėkmingai įvykdžius testus, Maven pateikia `BUILD SUCCESS`. Naujausią rezult
 | `User` | Studento ID, vardas ir bendrabučio ID |
 | `WashingMachine` | Skalbimo mašinos ID ir jos bendrabučio ID |
 | `ReservationServiceTest` | Rezervavimo logikos ir duomenų izoliavimo testai |
-| `WashingMachineTest` | Skalbimo mašinos modelio testas |
 | `pom.xml` | Maven ir JUnit projekto nustatymai |
 
 ## OOP ir architektūros principai
