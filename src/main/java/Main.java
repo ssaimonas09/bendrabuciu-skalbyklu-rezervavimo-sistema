@@ -30,6 +30,9 @@ public class Main {
 
         while (true) {
             printMenu(student);
+            if (!scanner.hasNextLine()) {
+                break;
+            }
             String choice = scanner.nextLine();
 
             if (choice.equals("0")) {
@@ -107,6 +110,9 @@ public class Main {
             User student) {
         try {
             System.out.print("Rezervacijos numeris: ");
+            if (!scanner.hasNextLine()) {
+                return;
+            }
             int reservationId = Integer.parseInt(scanner.nextLine());
 
             service.cancelReservation(student, reservationId);
@@ -127,6 +133,9 @@ public class Main {
             DateTimeFormatter format) {
         try {
             System.out.print("Mašinos numeris (2 arba 3): ");
+            if (!scanner.hasNextLine()) {
+                return;
+            }
             int machineId = Integer.parseInt(scanner.nextLine());
 
             WashingMachine machine = null;
@@ -145,6 +154,9 @@ public class Main {
             }
 
             System.out.print("Data ir laikas (yyyy-MM-dd HH:mm): ");
+            if (!scanner.hasNextLine()) {
+                return;
+            }
 
             LocalDateTime startTime =
                     LocalDateTime.parse(scanner.nextLine(), format);

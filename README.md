@@ -94,6 +94,8 @@ Abiejuose bendrabučiuose yra po dvi skalbimo mašinas:
 
 **Studentų ir mašinų ID specialiai kartojasi skirtinguose bendrabučiuose.** Tai padeda parodyti, kad duomenys turi būti atskiriami pagal bendrabučio ID, o ne vien pagal studento ar mašinos numerį.
 
+Pasibaigus konsolės įvesties srautui (EOF), programa tvarkingai baigia darbą, taip pat ir įvedant mašinos numerį, datą ar atšaukimo numerį. Įprastai išeinama pasirinkus `0`.
+
 Meniu pasirinkimas `4` pakeičia aktyvų demonstracinį studentą. Tai **nėra autentifikavimo sistema**.
 
 ## Programos demonstravimo scenarijai
@@ -132,10 +134,10 @@ Iš viso projekte yra **20 automatinių testų**:
 
 | Nr. | Testo metodas | Ką tikrina |
 |---:|---|---|
-| 1 | `createsReservationInOwnDormitory()` | Studentas gali sukurti rezervaciją savo bendrabutyje; saugykloje atsiranda vienas įrašas. |
+| 1 | `createsReservationInOwnDormitory()` | Tikrinami grąžintos ir vienintelės išsaugotos rezervacijos studento, mašinos, bendrabučio ID bei pradžios ir pabaigos laikai. |
 | 2 | `rejectsMachineFromOtherDormitory()` | Bandymas rezervuoti svetimo bendrabučio mašiną atmetamas; rezervacija neišsaugoma. |
-| 3 | `rejectsOverlappingReservation()` | Antras studentas negali rezervuoti tos pačios mašinos 15:30, kai ji užimta 15:00–16:00. |
-| 4 | `allowsAdjacentReservations()` | Skirtingi studentai gali rezervuoti tą pačią mašiną 15:00–16:00 ir 16:00–17:00. |
+| 3 | `rejectsOverlappingReservationsForSameMachine()` | Antras studentas negali rezervuoti tos pačios mašinos 15:30, kai ji užimta 15:00–16:00. |
+| 4 | `allowsAdjacentReservationsForSameMachine()` | Skirtingi studentai gali rezervuoti tą pačią mašiną 15:00–16:00 ir 16:00–17:00. |
 | 5 | `rejectsOverlappingReservationsForSameUser()` | Tas pats studentas negali rezervuoti kitos mašinos persidengiančiu laiku. |
 | 6 | `allowsAdjacentReservationsForSameUser()` | Tas pats studentas gali rezervuoti skirtingas mašinas gretimais intervalais. |
 | 7 | `rejectsReservationOverlappingFromEarlierStart()` | Atmetama 14:30–15:30 rezervacija, kai ta pati mašina jau užimta 15:00–16:00. |
@@ -145,7 +147,7 @@ Iš viso projekte yra **20 automatinių testų**:
 | Nr. | Testo metodas | Ką tikrina |
 |---:|---|---|
 | 8 | `rejectsReservationBeforeOpeningTime()` | Atmetama rezervacija nuo 06:30 – prieš darbo pradžią. |
-| 9 | `rejectsReservationAfterClosingTime()` | Atmetama rezervacija nuo 22:30, nes jos pabaiga būtų 23:30. |
+| 9 | `rejectsReservationEndingAfterClosingTime()` | Atmetama rezervacija nuo 22:30, nes jos pabaiga būtų 23:30. |
 | 10 | `allowsReservationEndingAtClosingTime()` | Leidžiama rezervacija nuo 22:00 iki 23:00. |
 | 11 | `rejectsPastReservation()` | Neleidžiama kurti rezervacijos praeityje. |
 | 12 | `rejectsReservationAtCurrentTime()` | Neleidžiama kurti rezervacijos, prasidedančios tiksliai dabartiniu momentu. |
@@ -155,7 +157,7 @@ Iš viso projekte yra **20 automatinių testų**:
 
 | Nr. | Testo metodas | Ką tikrina |
 |---:|---|---|
-| 14 | `studentACannotSeeDormitoryBReservations()` | Studentas A mato tik savo bendrabučio rezervaciją, nors kito bendrabučio studento ID taip pat yra `101`. |
+| 14 | `cannotSeeOtherDormitoryReservationsWithSameUserId()` | Abu studentai mato tik savo bendrabučio rezervaciją, nors jų ID yra `101`, o mašinų numeriai taip pat sutampa. |
 | 15 | `cannotCancelOtherDormitoryReservation()` | Studentas A negali atšaukti Studento B rezervacijos iš kito bendrabučio; rezervacija lieka išsaugota. |
 | 16 | `cannotSeeOtherStudentsReservationsInSameDormitory()` | Studentas mato tik savo, o ne kito studento rezervacijas tame pačiame bendrabutyje. |
 | 17 | `cannotCancelOtherStudentsReservationInSameDormitory()` | Studentas negali atšaukti kito to paties bendrabučio studento rezervacijos. |
@@ -164,7 +166,7 @@ Iš viso projekte yra **20 automatinių testų**:
 
 | Nr. | Testo metodas | Ką tikrina |
 |---:|---|---|
-| 18 | `ownerCanCancelOwnReservation()` | Studentas gali atšaukti savo rezervaciją; po atšaukimo jos nebemato savo sąraše. |
+| 18 | `ownerCanCancelOwnReservation()` | Studentas gali atšaukti savo rezervaciją; ji dingsta, o kito studento rezervacija išlieka. |
 | 19 | `allowsReservationAfterCancellation()` | Atšaukus rezervaciją galima iš naujo rezervuoti tą pačią mašiną tuo pačiu laiku. |
 
 ### Skalbimo mašinos duomenys – 1 testas
