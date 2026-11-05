@@ -74,7 +74,7 @@ Pasirinkus `1`, reikia įvesti skalbimo mašinos numerį (`2` arba `3`) ir prad�
 
 Pavyzdys: jei mašina rezervuota **15:00–16:00**, naujas bandymas rezervuoti ją **15:30–16:30** atmetamas, o **16:00–17:00** – leidžiamas.
 
-Datos įvedimui naudojamas formatas `uuuu-MM-dd HH:mm` ir `ResolverStyle.STRICT`, todėl neteisingos kalendorinės datos (pavyzdžiui, `2030-02-30 15:00`) atmetamos. Ši datos įvedimo taisyklė veikia `Main.java`; jai atskiro JUnit testo šiuo metu nėra.
+Datos įvedimui naudojamas formatas `uuuu-MM-dd HH:mm` ir `ResolverStyle.STRICT`, todėl neteisingos kalendorinės datos (pavyzdžiui, `2030-02-30 15:00`) atmetamos.
 
 ## Demonstraciniai duomenys
 
@@ -131,7 +131,7 @@ Iš viso projekte yra **19 automatinių testų**, visi faile `src/test/java/Rese
 
 | Nr. | Testo metodas | Ką tikrina |
 |---:|---|---|
-| 1 | `createsReservationInOwnDormitory()` | Tikrinami grąžintos ir vienintelės išsaugotos rezervacijos studento, mašinos, bendrabučio ID bei pradžios ir pabaigos laikai. |
+| 1 | `createsReservationInOwnDormitory()` | Tikrinama, ar rezervacija išsaugoma su teisingais studento, mašinos, bendrabučio ID bei pradžios ir pabaigos laikais. |
 | 2 | `rejectsMachineFromOtherDormitory()` | Bandymas rezervuoti svetimo bendrabučio mašiną atmetamas; rezervacija neišsaugoma. |
 | 3 | `rejectsOverlappingReservationsForSameMachine()` | Antras studentas negali rezervuoti tos pačios mašinos 15:30, kai ji užimta 15:00–16:00. |
 | 4 | `allowsAdjacentReservationsForSameMachine()` | Skirtingi studentai gali rezervuoti tą pačią mašiną 15:00–16:00 ir 16:00–17:00. |
@@ -226,23 +226,19 @@ Sėkmingai įvykdžius testus, Maven pateikia `BUILD SUCCESS`. Naujausią rezult
 | `ReservationServiceTest` | Rezervavimo logikos ir duomenų izoliavimo testai |
 | `pom.xml` | Maven ir JUnit projekto nustatymai |
 
-## OOP ir architektūros principai
+## Kodo struktūra ir OOP principai
 
-Programa suskirstyta į **konsolinę sąsają**, **verslo logiką** ir **duomenų saugojimą**. Taip atskiriamos klasių atsakomybės ir kodą lengviau suprasti bei testuoti.
+Programa suskirstyta į tris pagrindines dalis: konsolinę sąsają, verslo logiką ir duomenų saugojimą. Toks atsakomybių atskyrimas padeda lengviau suprasti, prižiūrėti ir testuoti programos kodą.
 
-- **Inkapsuliacija:** duomenų modelių laukai yra `private final`; jų reikšmės pasiekiamos per `get...()` metodus.
-- **Vienos atsakomybės principas (SRP):** `Main` apdoroja įvestį, `ReservationService` tikrina taisykles, o `ReservationRepository` saugo rezervacijas.
-- **Priklausomybių perdavimas per konstruktorių:** `ReservationService` gauna `ReservationRepository` objektą per konstruktorių.
-- **Testuojamumas:** `ReservationService` konstruktorius taip pat gali priimti `Clock`, todėl testuose naudojamas fiksuotas laikas.
-
-Projektas sąmoningai paliktas paprastas: nenaudojami papildomi karkasai, sudėtingi projektavimo šablonai ar nereikalingos abstrakcijos. Priklausomybių perdavimas per konstruktorių **nereiškia**, kad čia visiškai įgyvendintas kiekvienas SOLID principas.
+- **Inkapsuliacija:** modelių klasių duomenys saugomi privačiuose laukuose (`private final`), o jų reikšmės pasiekiamos per `get...()` metodus.
+- **Vienos atsakomybės principas (SRP):** `Main` atsakinga už naudotojo įvestį ir rezultatų pateikimą, `ReservationService` – rezervavimo taisyklių tikrinimą, o `ReservationRepository` – rezervacijų saugojimą ir paiešką.
+- **Priklausomybių perdavimas per konstruktorių:** `ReservationService` reikalingos priklausomybės perduodamos per konstruktorių. Tai leidžia testuose naudoti fiksuotą laikrodį (`Clock`) ir patikrinti nuo laiko priklausančias rezervavimo taisykles.
 
 ## II etapo apimtis ir apribojimai
 
 Įgyvendintas veikiantis **konsolinis rezervavimo prototipas**. Svarbūs dabartinės versijos apribojimai:
 
-- Duomenys išsaugomi tik programos veikimo metu; uždarius programą jie prarandami.
-- Duomenų bazė neįdiegta.
+- Rezervacijos saugomos operatyviojoje atmintyje, todėl uždarius programą duomenys neišlieka. Duomenų bazė šiame etape nenaudojama.
 - Tikro prisijungimo ir autentifikavimo nėra; aktyvus studentas keičiamas demonstraciniu meniu.
 - Visiems bendrabučiams taikoma ta pati **1 valandos** rezervacijos trukmė ir **07:00–23:00** darbo laikas.
 - Atskiros laisvų rezervavimo laikų peržiūros funkcijos nėra.
@@ -250,7 +246,3 @@ Projektas sąmoningai paliktas paprastas: nenaudojami papildomi karkasai, sudėt
 - Atšaukiant rezervaciją tikrinama jos priklausomybė studentui, bet **netikrinama**, ar rezervacija jau prasidėjusi.
 
 I etapo projektavimo dokumente numatytas platesnis funkcionalumas gali būti plėtojamas vėlesniuose projekto etapuose.
-
-## Projekto paskirtis
-
-Projektas parengtas VILNIUS TECH programų inžinerijos studijų dalyko **„Programų sistemų projektavimas“ II etapo** praktiniam atsiskaitymui.
