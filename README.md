@@ -35,6 +35,8 @@ Projektas turi Maven Wrapper, todėl Maven atskirai diegti nereikia. Pirmą kart
 
 Komandas reikia vykdyti **pagrindiniame projekto aplanke**, kuriame yra `pom.xml`, `mvnw` ir `mvnw.cmd`.
 
+Papildomos programos konfigūracijos, API raktų ar duomenų bazės paruošimo nereikia. Demonstraciniai studentai ir mašinos sukuriami `Main.main()`, o bendra rezervacijos trukmė ir darbo laikas nustatyti `ReservationService.createReservation()`. Programa naudoja kompiuterio vietinį laiką; testai naudoja fiksuotą laikrodį.
+
 ## Programos paleidimas
 
 **macOS / Linux:**

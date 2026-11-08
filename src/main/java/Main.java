@@ -12,16 +12,22 @@ public class Main {
         ReservationRepository repository = new ReservationRepository();
         ReservationService service = new ReservationService(repository);
 
-        User studentA = new User(101, "Studentas A", 1);
-        User studentB = new User(101, "Studentas B", 2);
+        int dormitoryAId = 1;
+        int dormitoryBId = 2;
+        int sharedStudentId = 101;
+        int machineAId = 2;
+        int machineBId = 3;
+
+        User studentA = new User(sharedStudentId, "Studentas A", dormitoryAId);
+        User studentB = new User(sharedStudentId, "Studentas B", dormitoryBId);
 
         User student = studentA;
 
         List<WashingMachine> machines = List.of(
-                new WashingMachine(2, 1),
-                new WashingMachine(3, 1),
-                new WashingMachine(2, 2),
-                new WashingMachine(3, 2)
+                new WashingMachine(machineAId, dormitoryAId),
+                new WashingMachine(machineBId, dormitoryAId),
+                new WashingMachine(machineAId, dormitoryBId),
+                new WashingMachine(machineBId, dormitoryBId)
         );
 
         DateTimeFormatter format =
@@ -40,7 +46,7 @@ public class Main {
             }
 
             if (choice.equals("4")) {
-                if (student.getDormitoryId() == 1) {
+                if (student.getDormitoryId() == dormitoryAId) {
                     student = studentB;
                 } else {
                     student = studentA;
