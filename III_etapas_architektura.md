@@ -38,12 +38,22 @@ flowchart TD
 
 **Atributas ir sprendimas.** [I etapo plane](I_etapas_projektavimo_dokumentas.md) pasirinktas **palaikomumas**: A bendrabučio trukmę pakeitus iš 60 į 90 minučių, B turi likti 60 minučių, o rezervavimo taisyklių nereikia perrašyti. Kiekvieno bendrabučio trukmė saugoma `dormitories.reservation_minutes`. [PostgresReservationSettingsSource](src/main/java/PostgresReservationSettingsSource.java#L19) ją skaito pagal bendrabučio ID, o [ReservationService](src/main/java/ReservationService.java#L20) naudoja gautą reikšmę.
 
-**Pakartojamas bandymas.** Reikia veikiančio Docker Desktop ir [README](README.md) komandos `docker compose up --build -d`. Pradinėje DB A ir B trukmės yra 60 minučių. A administratorius `admin_1` nustato 90, B administratorius `admin_2` mato 60. Abu gyventojai savo bendrabučio mašinai Nr. 2 pasirenka tą pačią būsimą datą ir 15:00. A naujos rezervacijos pabaiga turi būti 16:30, B – 16:00. Jei DB jau naudota, prieš bandymą administratorių formose abi trukmes reikia nustatyti į 60 ir pasirinkti būsimą datą bei intervalą, kuriame abu gyventojai ir abi mašinos neturi rezervacijų. Prisijungimo duomenys pateikti [README paskyrų lentelėje](README.md#paleidimas). Automatiniam bandymui vykdoma `docker compose run --build --rm app mvn test`.
+**Kaip vertinau atributą.** Palaikomumą vertinau pagal I etape pasirinktą nustatymo pakeitimo scenarijų. Tikrinau tris dalykus: ar A nustatymas pakeičia jo naujos rezervacijos trukmę, ar B elgesys išlieka toks pats ir ar esami rezervavimo taisyklių testai tebėra sėkmingi. Kodo peržiūroje patikrinau, kad abiem bendrabučiams naudojamas tas pats rezervavimo metodas, o trukmė gaunama iš bendrabučio nustatymų.
+
+**Pakartojamas bandymas.** Aplinka – veikiantis Docker Desktop ir pagal [README](README.md#paleidimas) paleista sistema. Prisijungimo duomenys pateikti tame pačiame README.
+
+1. Abiejų administratorių formose nustatyti A ir B trukmes į 60 minučių. Tai svarbu ir pakartotinai naudojant DB.
+2. Pasirinkti tą pačią būsimą datą, kai 15:00–16:30 intervale abu gyventojai ir abiejų bendrabučių mašinos Nr. 2 neturi rezervacijų.
+3. A administratoriui pakeisti tik A trukmę į 90 minučių. Prisijungus B administratoriumi patikrinti, kad B liko 60 minučių.
+4. Abiem gyventojams savo bendrabučio mašiną Nr. 2 rezervuoti nuo 15:00. Palyginti naujų rezervacijų pabaigas: A turi būti 16:30, B – 16:00.
+5. Paleisti `docker compose run --build --rm app mvn test` ir patikrinti, kad nėra nesėkmių, klaidų ar praleistų testų.
 
 | I etape nustatytas sėkmės kriterijus | Faktinis rezultatas | Išvada ir įrodymas |
 | --- | --- | --- |
 | A nauja rezervacija – 90 min., B – 60 min.; pagrindinio algoritmo nereikia dubliuoti | [ReservationSettingsTest.changingOneDormitoryDurationDoesNotChangeTheOther](src/test/java/ReservationSettingsTest.java#L21) su 2030-11-20 15:00 įvestimi gavo A pabaigą 16:30, B – 16:00. [WebServerIntegrationTest.serverChecksLoginRoleTenantAndSettings](src/test/java/WebServerIntegrationTest.java#L21) patvirtino DB nustatymo pakeitimą ir rezervacijų trukmes | Pasiekta: abiem bendrabučiams taikomas tas pats `ReservationService.createReservation` metodas; jo konfliktų tikrinimo kodo keičiant nustatymą keisti nereikia |
 | Pakeitus A, B nustatymas lieka toks pats, o ankstesnės taisyklės tebeveikia | DB integracijos testas patikrino, kad B reikšmė nepasikeitė; 2026-11-22 15:25 vietos laiku Docker aplinkoje paleista 30 testų: 0 nesėkmių, 0 klaidų, 0 praleidimų, `BUILD SUCCESS` | Pasiekta vietiniame bandyme; komanda ir sąlygos pateiktos [README](README.md) |
+
+**Vertinimo išvada.** Pasirinkto scenarijaus sėkmės kriterijus pasiektas: trukmė keičiama per bendrabučio nustatymą, bendro rezervavimo algoritmo tam keisti ar kopijuoti nereikia, o esamos taisyklės patikrintos testais. A/B rezultatai kartu įrodo kliento konfigūracijos izoliaciją; palaikomumui svarbu tai, kad pakeitimui pakako nustatymo, išlaikant bendrą algoritmą. Ši išvada taikoma šiam konkrečiam pakeitimui ir neįrodo, kad visus būsimus sistemos pakeitimus atlikti bus vienodai lengva.
 
 Bandymo aplinka: macOS, Docker Desktop, Java 21 ir Maven konteineryje, PostgreSQL 17. Iš 30 testų 25 yra vienetiniai, 5 – su tikra DB. Žemiau pateikta tą dieną gauta Maven rezultatų suvestinė.
 
@@ -69,7 +79,7 @@ curl -i -b /tmp/laundry-a.cookies -d 'reservationId=B_REZERVACIJOS_ID' http://lo
 
 Tikimasi 303 po prisijungimo ir 400 po atšaukimo bandymo. B gyventojas atnaujina savo puslapį ir patikrina, kad rezervacija išliko. Naršyklės ir terminalo sesijos yra atskiros.
 
-**API užklausa.** `GET /api/reservations` naršyklėje naudoja tą patį sesijos slapuką. Tiesioginėms API užklausoms be slapuko galima siųsti `Authorization: Basic`: tokia užklausa atskirai patikrinama DB. Naršyklės HTML puslapiai `Basic` antraštę ignoruoja, todėl iš jų galima patikimai atsijungti. Su `Basic` antrašte serveris iš pačios užklausos gauna prisijungimo duomenis, DB patikrina paskyrą ir jos bendrabutį, tada rezervacijas skaito iš DB. Todėl šią užklausą gali aptarnauti kitas serverio procesas be ankstesnio prisijungimo savo atmintyje. Patikroje du serverio egzemplioriai naudojo tą pačią DB: pirmojo sesijos slapukas antrajame grąžino 401, o atskira `Basic` užklausa – 200. Šis nepriklausomumas taikomas tiesioginėms JSON API skaitymo užklausoms; HTML formos naudoja serverio sesiją. Po serverio perkrovimo atmintyje laikytos sesijos nebegalioja.
+**API užklausa.** `GET /api/reservations` naršyklėje naudoja tą patį sesijos slapuką. Tiesioginėms API užklausoms be slapuko galima siųsti `Authorization: Basic`: tokia užklausa atskirai patikrinama DB. Naršyklės HTML puslapiai `Basic` antraštę ignoruoja, todėl iš jų galima patikimai atsijungti. Su `Basic` antrašte serveris iš pačios užklausos gauna prisijungimo duomenis, DB patikrina paskyrą ir jos bendrabutį, tada rezervacijas skaito iš DB. Todėl šią užklausą gali aptarnauti kitas serverio procesas be ankstesnio prisijungimo savo atmintyje. Patikroje du serverio egzemplioriai naudojo tą pačią DB: pirmojo sesijos slapukas antrajame grąžino 401, o atskira `Basic` užklausa – 200. Tai buvo papildoma techninė patikra; ji nėra atskiras į repozitoriją įtrauktas JUnit testas. Žemiau pateiktos komandos leidžia pakartoti prisijungimo prie API patikrą viename veikiančiame serveryje. Šis nepriklausomumas taikomas tiesioginėms JSON API skaitymo užklausoms; HTML formos naudoja serverio sesiją. Po serverio perkrovimo atmintyje laikytos sesijos nebegalioja.
 
 API prisijungimo patikrą galima pakartoti be ankstesnio prisijungimo ir be slapukų failo:
 
@@ -101,8 +111,8 @@ I etapo plane ateičiai minėtas ir administratoriaus mašinų valdymas. Šiame 
 
 | Priemonė ir paskirtis | Panaudota | Atmesta ar pakeista ir kodėl | Patikrinimas |
 | --- | --- | --- | --- |
-| ChatGPT/Codex: Java, SQL, testų pagalba | HTTP maršrutų, JDBC prieigos, rezervavimo ir testų kodas; vėliau prisijungimo forma su atsijungimu | Pasirinktas paprastas HTML be JavaScript karkaso, kad sąsają būtų lengva suprasti ir paaiškinti; rezervavimo taisyklės paliktos Java modulyje | 2026-11-22 sėkmingai paleisti visi 30 testų su PostgreSQL, įskaitant prisijungimo ir paskyrų keitimo patikrą |
-| ChatGPT/Codex: dokumento tekstas | README ir šio dokumento struktūros juodraščiai | Patikslinti schemos ir API aprašai: taisyklių tikrinimas priskirtas rezervavimo moduliui, aiškiai atskirtos sesijos ir nepriklausomos `Basic` užklausos; pašalinti neįgyvendintų funkcijų pažadai | Metodų, failų ir bandymo rezultatų patikra |
+| ChatGPT/Codex: Java, SQL, testų pagalba | HTTP maršrutų, JDBC prieigos, rezervavimo ir testų kodas; vėliau prisijungimo forma su atsijungimu | Pasirinktas paprastas HTML be JavaScript karkaso, kad sąsają būtų lengva suprasti ir paaiškinti; rezervavimo taisyklės paliktos Java modulyje. Kodo peržiūros metu iš HTML pašalinta atsitiktinai įklijuota terminalo komanda | 2026-11-22 sėkmingai paleisti visi 30 testų su PostgreSQL, įskaitant prisijungimo ir paskyrų keitimo patikrą |
+| ChatGPT/Codex: dokumento tekstas | README ir šio dokumento struktūros juodraščiai | Patikslinti schemos ir API aprašai: taisyklių tikrinimas priskirtas rezervavimo moduliui, aiškiai atskirtos sesijos ir nepriklausomos `Basic` užklausos. | Aprašas palygintas su konkrečiais metodais ir bandymų išvestimis; po HTML pataisos visi 30 testų praėjo |
 | Gemini Pro: I etapo plano peržiūra | I etape aptarti plano pasiūlymai; galutiniame kode Gemini nenaudojamas | Nepasirinkti nepatikrinti arba šiai apimčiai nereikalingi pasiūlymai | I etapo dokumento palyginimas su užduoties reikalavimais |
 
 AI nėra sistemos funkcija: rezervavimo sprendimą priima Java taisyklės pagal DB duomenis.
