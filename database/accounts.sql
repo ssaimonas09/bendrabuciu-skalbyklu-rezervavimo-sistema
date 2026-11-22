@@ -1,4 +1,3 @@
--- Veikia ir su jau egzistuojanciu postgres_data tomu.
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS login VARCHAR(100);
@@ -21,7 +20,6 @@ ON CONFLICT (dormitory_id, id) DO NOTHING;
 
 CREATE UNIQUE INDEX IF NOT EXISTS users_login_unique ON users(login);
 
--- Seka saugiai paskiria nauja ID ir jau naudotoje bazeje.
 CREATE SEQUENCE IF NOT EXISTS user_id_seq START WITH 102;
 SELECT setval('user_id_seq', GREATEST((SELECT COALESCE(MAX(id), 101) FROM users), 101));
 

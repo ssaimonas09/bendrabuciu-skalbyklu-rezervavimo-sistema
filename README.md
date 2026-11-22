@@ -10,7 +10,7 @@ Galutinė III kursinio darbo dalis. Sistema aptarnauja du bendrabučius: gyvento
 
 ## Paleidimas
 
-Reikia veikiančio Docker Desktop su Docker Compose. Java, Maven ir PostgreSQL atskirai įdiegti nereikia.
+Reikia veikiančio Docker Desktop su Docker Compose. Java, Maven ir PostgreSQL atskirai įdiegti nereikia. Vietiniai prievadai 8080 (svetainė) ir 5433 (DB) turi būti laisvi: prieš paleidimą sustabdykite kitą juos naudojančią programą arba ankstesnę projekto versiją.
 
 1. Atsidarykite terminalą projekto aplanke.
 2. Paleiskite vieną komandą: `docker compose up --build -d`.
@@ -23,7 +23,7 @@ Reikia veikiančio Docker Desktop su Docker Compose. Java, Maven ir PostgreSQL a
 | `admin_1` | `admin_demo` | A bendrabučio administratorius |
 | `admin_2` | `admin_demo` | B bendrabučio administratorius |
 
-Abiejuose bendrabučiuose iš pradžių yra mašinos Nr. 2 ir 3. Naują gyventojo paskyrą savo bendrabutyje sukuria administratorius. Norėdami pakeisti paskyrą, paspauskite **Atsijungti / pakeisti paskyrą** ir prisijunkite kitu vardu tame pačiame lange. Demonstraciniai slaptažodžiai ir `127.0.0.1` prievadai skirti vietiniam naudojimui.
+Abiejuose bendrabučiuose iš pradžių yra mašinos Nr. 2 ir 3. Naują gyventojo paskyrą savo bendrabutyje sukuria administratorius. Norėdami pakeisti paskyrą, paspauskite **Atsijungti** ir prisijunkite kitu vardu tame pačiame lange. Demonstraciniai slaptažodžiai ir `127.0.0.1` prievadai skirti vietiniam naudojimui.
 
 Laikai įvedami Lietuvos laiku: compose.yaml Java procesui nustato Europe/Vilnius. Datą galima pasirinkti kalendoriuje, o valandą (07–22) ir minutę (00 arba 30) – iš 24 valandų formato sąrašų. Rezervacijos pradžia galima kas 30 minučių, kaip rodoma skiltyje „Laisvi laikai“. Skalbimo laikas yra 07:00–23:00; administratorius gali pasirinkti 1–960 minučių trukmę.
 
