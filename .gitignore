@@ -2,3 +2,11 @@
 target/
 *.iml
 .DS_Store
+.env
+.env.*
+GYNIMO_GIDAS.md
+KODO_PAAISKINIMAS.md
+ATITIKTIES_PATIKRA.md
+TECHNINIS_AUDITAS.md
+*.zip
+KONSPEKTAS.md

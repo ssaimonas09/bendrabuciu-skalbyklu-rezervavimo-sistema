@@ -1,31 +1,33 @@
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 public class ReservationService {
-    private final ReservationRepository repository;
+    static final int START_STEP_MINUTES = 30;
+    private final ReservationStore repository;
     private final Clock clock;
+    private final ReservationSettingsSource settingsSource;
 
-    public ReservationService(ReservationRepository repository) {
-        this(repository, Clock.systemDefaultZone());
-    }
-
-    public ReservationService(ReservationRepository repository, Clock clock) {
+    public ReservationService(ReservationStore repository, Clock clock,
+                              ReservationSettingsSource settingsSource) {
         this.repository = repository;
         this.clock = clock;
+        this.settingsSource = settingsSource;
     }
 
-    public Reservation createReservation(User user,
-                                         WashingMachine machine,
-                                         LocalDateTime startTime) {
+    public synchronized Reservation createReservation(User user,
+                                                      WashingMachine machine,
+                                                      LocalDateTime startTime) {
         if (user.getDormitoryId() != machine.getDormitoryId()) {
             throw new IllegalArgumentException(
                     "Negalima rezervuoti kito bendrabučio mašinos."
             );
         }
 
-        LocalDateTime endTime = startTime.plusHours(1);
+        ReservationSettings settings = settingsSource.findForDormitory(user.getDormitoryId());
+        LocalDateTime endTime = startTime.plusMinutes(settings.durationMinutes());
 
         if (!startTime.isAfter(LocalDateTime.now(clock))) {
             throw new IllegalArgumentException(
@@ -33,12 +35,19 @@ public class ReservationService {
             );
         }
 
-        LocalDateTime openingTime = startTime.toLocalDate().atTime(7, 0);
-        LocalDateTime closingTime = startTime.toLocalDate().atTime(23, 0);
+        if (startTime.getMinute() % START_STEP_MINUTES != 0
+                || startTime.getSecond() != 0 || startTime.getNano() != 0) {
+            throw new IllegalArgumentException(
+                    "Pasirinkite laiką ties pilna arba puse valandos."
+            );
+        }
+
+        LocalDateTime openingTime = startTime.toLocalDate().atTime(settings.opensAt());
+        LocalDateTime closingTime = startTime.toLocalDate().atTime(settings.closesAt());
 
         if (startTime.isBefore(openingTime) || endTime.isAfter(closingTime)) {
             throw new IllegalArgumentException(
-                    "Rezervacija turi tilpti į skalbyklos darbo laiką 07:00–23:00."
+                    "Rezervacija turi tilpti i skalbyklos darbo laika."
             );
         }
 
@@ -106,12 +115,50 @@ public class ReservationService {
                 && end.isAfter(existing.getStartTime());
     }
 
+    public List<LocalDateTime> getAvailableStartTimes(User user,
+                                                       WashingMachine machine,
+                                                       LocalDate date) {
+        if (user.getDormitoryId() != machine.getDormitoryId()) {
+            throw new IllegalArgumentException("Kito bendrabucio masina nepasiekiama.");
+        }
+
+        ReservationSettings settings = settingsSource.findForDormitory(user.getDormitoryId());
+        List<Reservation> reservations = repository.findByDormitoryId(user.getDormitoryId());
+        List<LocalDateTime> available = new ArrayList<>();
+        LocalDateTime closing = date.atTime(settings.closesAt());
+        LocalDateTime now = LocalDateTime.now(clock);
+
+        for (LocalDateTime start = date.atTime(settings.opensAt());
+             !start.plusMinutes(settings.durationMinutes()).isAfter(closing);
+             start = start.plusMinutes(START_STEP_MINUTES)) {
+            if (!start.isAfter(now)) {
+                continue;
+            }
+
+            LocalDateTime end = start.plusMinutes(settings.durationMinutes());
+            boolean occupied = false;
+            for (Reservation reservation : reservations) {
+                if ((reservation.getWashingMachineId() == machine.getId()
+                        || reservation.getUserId() == user.getId())
+                        && overlapsExistingReservation(start, end, reservation)) {
+                    occupied = true;
+                    break;
+                }
+            }
+            if (!occupied) {
+                available.add(start);
+            }
+        }
+        return available;
+    }
+
     public List<Reservation> getMyReservations(User user) {
         List<Reservation> myReservations = new ArrayList<>();
 
         for (Reservation reservation :
                 repository.findByDormitoryId(user.getDormitoryId())) {
-            if (reservation.getUserId() == user.getId()) {
+            if (reservation.getUserId() == user.getId()
+                    && reservation.getStartTime().isAfter(LocalDateTime.now(clock))) {
                 myReservations.add(reservation);
             }
         }
@@ -124,6 +171,10 @@ public class ReservationService {
                 repository.findByDormitoryId(user.getDormitoryId())) {
             if (reservation.getId() == reservationId
                     && reservation.getUserId() == user.getId()) {
+                if (!reservation.getStartTime().isAfter(LocalDateTime.now(clock))) {
+                    throw new IllegalArgumentException(
+                            "Prasidejusios rezervacijos atsaukti negalima.");
+                }
                 repository.delete(reservation);
                 return;
             }

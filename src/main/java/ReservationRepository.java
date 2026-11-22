@@ -1,7 +1,7 @@
 import java.util.ArrayList;
 import java.util.List;
 
-public class ReservationRepository {
+public class ReservationRepository implements ReservationStore {
     private final List<Reservation> reservations = new ArrayList<>();
 
     private int nextId = 1;

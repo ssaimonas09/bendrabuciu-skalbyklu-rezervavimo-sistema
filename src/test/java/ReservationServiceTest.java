@@ -3,6 +3,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.List;
 
@@ -38,6 +39,22 @@ public class ReservationServiceTest {
         assertEquals(student.getDormitoryId(), storedReservation.getDormitoryId());
         assertEquals(startTime, storedReservation.getStartTime());
         assertEquals(expectedEndTime, storedReservation.getEndTime());
+    }
+
+    @Test
+    void acceptsOnlyHalfHourStartTimesShownAsAvailable() {
+        ReservationRepository repository = new ReservationRepository();
+        ReservationService service = createService(repository);
+        User student = new User(101, "Student A", 1);
+        WashingMachine machine = new WashingMachine(2, 1);
+
+        assertThrows(IllegalArgumentException.class, () -> service.createReservation(
+                student, machine, LocalDateTime.of(2030, 11, 20, 13, 33)));
+        assertEquals(0, repository.findByDormitoryId(1).size());
+
+        Reservation reservation = service.createReservation(
+                student, machine, LocalDateTime.of(2030, 11, 20, 13, 30));
+        assertEquals(LocalDateTime.of(2030, 11, 20, 13, 30), reservation.getStartTime());
     }
 
     @Test
@@ -477,6 +494,8 @@ public class ReservationServiceTest {
                 ZoneOffset.UTC
         );
 
-        return new ReservationService(repository, testClock);
+        return new ReservationService(repository, testClock,
+                id -> new ReservationSettings(60,
+                        LocalTime.of(7, 0), LocalTime.of(23, 0)));
     }
 }

@@ -1,0 +1,47 @@
+services:
+  db:
+    image: postgres:17
+    ports:
+      - "127.0.0.1:5433:5432"
+    environment:
+      POSTGRES_DB: laundry
+      POSTGRES_USER: laundry
+      POSTGRES_PASSWORD: local_development_only
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U laundry -d laundry"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+      setup:
+        condition: service_completed_successfully
+    environment:
+      JDBC_URL: jdbc:postgresql://db:5432/laundry
+      DB_USER: laundry
+      DB_PASSWORD: local_development_only
+      PORT: "8080"
+      TZ: Europe/Vilnius
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  setup:
+    image: postgres:17
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: local_development_only
+    volumes:
+      - ./database/accounts.sql:/accounts.sql:ro
+    command: ["psql", "-v", "ON_ERROR_STOP=1", "-h", "db", "-U", "laundry", "-d", "laundry", "-f", "/accounts.sql"]
+
+volumes:
+  postgres_data:

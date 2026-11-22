@@ -1,250 +1,71 @@
 # Bendrabučių skalbyklų rezervavimo sistema
 
-## Projekto aprašymas
+Galutinė III kursinio darbo dalis. Sistema aptarnauja du bendrabučius: gyventojas mato savo bendrabučio mašinų laisvus laikus, sukuria rezervaciją, peržiūri ir atšaukia savo būsimas rezervacijas. Administratorius keičia savo bendrabučio rezervacijos trukmę ir kuria gyventojų paskyras. Sistemos sandara, ryšys su I etapu ir kokybės atributo bandymas pateikti [architektūros dokumente](III_etapas_architektura.md).
 
-**Bendrabučių skalbyklų rezervavimo sistema** – Java konsolinė programa, skirta studentų skalbimo mašinų rezervacijoms valdyti. Tai „Programų sistemų projektavimo“ dalyko **II etapo veikiantis prototipas**, kuriame pagrindinis dėmesys skiriamas rezervacijos sukūrimui, verslo taisyklių tikrinimui ir skirtingų bendrabučių duomenų atskyrimui.
+## Etapų dokumentai
 
-Programa leidžia:
+- [I etapo projektavimo dokumentas](I_etapas_projektavimo_dokumentas.md).
+- [II etapo prototipo aprašas (istorinis)](II_etapas_README.md).
+- [III etapo architektūros dokumentas](III_etapas_architektura.md).
 
-- sukurti skalbimo mašinos rezervaciją;
-- peržiūrėti savo rezervacijas;
-- atšaukti savo rezervaciją;
-- patikrinti, ar rezervacijos laikas tinkamas ir nesikerta su esamomis rezervacijomis;
-- demonstravimo metu perjungti du skirtingiems bendrabučiams priklausančius studentus.
+## Paleidimas
 
-Rezervacijų peržiūros ir atšaukimo teisės tikrinamos `ReservationService` klasėje. Tikro prisijungimo ar autentifikavimo šiame prototipe nėra – naudojami iš anksto sukurti demonstraciniai studentai.
+Reikia veikiančio Docker Desktop su Docker Compose. Java, Maven ir PostgreSQL atskirai įdiegti nereikia.
 
-## Naudojamos technologijos
+1. Atsidarykite terminalą projekto aplanke.
+2. Paleiskite vieną komandą: `docker compose up --build -d`.
+3. Atidarykite `http://localhost:8080`. Prisijunkite puslapio formoje su viena iš žemiau pateiktų paskyrų.
 
-| Technologija | Paskirtis |
-|---|---|
-| Java 21 | Projekto kompiliavimo tikslinė versija |
-| Maven | Projekto kompiliavimas ir priklausomybių valdymas |
-| Maven Wrapper (Maven 3.9.9) | Maven komandų vykdymas be atskiro Maven diegimo |
-| JUnit 5 (`junit-jupiter` 5.14.3) | Automatiniai vienetų testai |
-| Maven Surefire Plugin 3.5.6 | JUnit testų vykdymas per Maven |
-| IntelliJ IDEA | Programos kūrimo ir testavimo aplinka |
+| Prisijungimo vardas | Slaptažodis | Teisės |
+| --- | --- | --- |
+| `student_1_101` | `student_demo` | A bendrabučio gyventojas |
+| `student_2_101` | `student_demo` | B bendrabučio gyventojas |
+| `admin_1` | `admin_demo` | A bendrabučio administratorius |
+| `admin_2` | `admin_demo` | B bendrabučio administratorius |
 
-Rezervacijos saugomos operatyviojoje atmintyje naudojant `ArrayList`. **Duomenų bazė šiame etape nenaudojama.**
+Abiejuose bendrabučiuose iš pradžių yra mašinos Nr. 2 ir 3. Naują gyventojo paskyrą savo bendrabutyje sukuria administratorius. Norėdami pakeisti paskyrą, paspauskite **Atsijungti / pakeisti paskyrą** ir prisijunkite kitu vardu tame pačiame lange. Demonstraciniai slaptažodžiai ir `127.0.0.1` prievadai skirti vietiniam naudojimui.
 
-## Reikalavimai paleidimui
+Laikai įvedami Lietuvos laiku: compose.yaml Java procesui nustato Europe/Vilnius. Datą galima pasirinkti kalendoriuje, o valandą (07–22) ir minutę (00 arba 30) – iš 24 valandų formato sąrašų. Rezervacijos pradžia galima kas 30 minučių, kaip rodoma skiltyje „Laisvi laikai“. Skalbimo laikas yra 07:00–23:00; administratorius gali pasirinkti 1–960 minučių trukmę.
 
-Reikalingas **JDK 21** arba naujesnis su Java 21 suderinamas JDK.
+Sustabdymas: `docker compose down`. PostgreSQL duomenys išlieka Docker tome; jo trinti nereikia. `setup` paslauga pritaiko [accounts.sql](database/accounts.sql) ir jau anksčiau sukurtai vietinei bazei.
 
-Projektas turi Maven Wrapper, todėl Maven atskirai diegti nereikia. Pirmą kartą vykdant komandą gali reikėti interneto ryšio Maven ir priklausomybėms atsisiųsti.
+## Ką galima patikrinti
 
-Komandas reikia vykdyti **pagrindiniame projekto aplanke**, kuriame yra `pom.xml`, `mvnw` ir `mvnw.cmd`.
+- A gyventojas rezervuoja savo mašiną būsimam laikui, mato rezervaciją ir gali ją atšaukti. Jei mašina tuo metu užimta, rezervacija atmetama.
+- A gyventojo `GET /api/reservations?dormitoryId=2` grąžina 403. Be tinkamo prisijungimo API grąžina 401.
+- A administratorius keičia A trukmę iš 60 į 90 minučių; B trukmė lieka 60. Rezervacija nuo 15:00 A baigiasi 16:30, B – 16:00. Jei DB jau naudota, prieš bandymą abiejų administratorių formose nustatykite 60.
+- Gyventojas negali keisti administratoriaus nustatymų (403). A administratorius negali pakeisti B nustatymų (403).
 
-Papildomos programos konfigūracijos, API raktų ar duomenų bazės paruošimo nereikia. Demonstraciniai studentai ir mašinos sukuriami `Main.main()`, o bendra rezervacijos trukmė ir darbo laikas nustatyti `ReservationService.createReservation()`. Programa naudoja kompiuterio vietinį laiką; testai naudoja fiksuotą laikrodį.
+Puslapis naudoja HTML formas be JavaScript. Prisijungus serveris sukuria 8 valandų sesiją ir naršyklei perduoda `HttpOnly` slapuką; atsijungus sesija panaikinama. Perkrovus serverį reikia prisijungti iš naujo. JSON adresai: `GET /api/reservations` ir `GET /api/availability?machineId=2&date=2030-11-20`. Naršyklė juos pasiekia su sesijos slapuku; tiesioginės API užklausos taip pat priima `Authorization: Basic` antraštę, bet naršyklės puslapiai ją ignoruoja.
 
-## Programos paleidimas
+## Automatiniai testai
 
-**macOS / Linux:**
-
-```bash
-./mvnw compile exec:java -Dexec.mainClass=Main
-```
-
-**Windows (PowerShell):**
-
-```powershell
-.\mvnw.cmd compile exec:java "-Dexec.mainClass=Main"
-```
-
-Paleidus programą rodomas aktyvus studentas, jo bendrabučio numeris ir meniu:
-
-```text
-1 - Sukurti rezervaciją
-2 - Mano rezervacijos
-3 - Atšaukti rezervaciją
-4 - Pakeisti demonstracinį studentą
-0 - Baigti programą
-```
-
-Pasirinkus `1`, reikia įvesti skalbimo mašinos numerį (`2` arba `3`) ir pradžios datą bei laiką, pavyzdžiui, `2030-11-22 15:00`. Rezervacijos pabaigą sistema apskaičiuoja automatiškai.
-
-## Rezervavimo taisyklės
-
-1. Studentas gali rezervuoti **tik savo bendrabučio** skalbimo mašiną.
-2. Rezervacijos pradžia turi būti **ateityje**; rezervavimas tiksliai dabartiniu momentu neleidžiamas.
-3. Viena rezervacija trunka **1 valandą**.
-4. Visas rezervacijos intervalas turi tilpti į **07:00–23:00** darbo laiką. Galimos, pavyzdžiui, 07:00–08:00 ir 22:00–23:00 rezervacijos.
-5. Negalima sukurti dviejų **tos pačios mašinos** persidengiančių rezervacijų tame pačiame bendrabutyje.
-6. Tas pats studentas negali tuo pačiu metu rezervuoti **dviejų skirtingų mašinų**.
-7. **Gretimos rezervacijos leidžiamos:** 15:00–16:00 ir 16:00–17:00 nesikerta.
-8. Studentas gali **peržiūrėti ir atšaukti tik savo** rezervacijas, ne kito studento ar kito bendrabučio.
-
-Pavyzdys: jei mašina rezervuota **15:00–16:00**, naujas bandymas rezervuoti ją **15:30–16:30** atmetamas, o **16:00–17:00** – leidžiamas.
-
-Datos įvedimui naudojamas formatas `uuuu-MM-dd HH:mm` ir `ResolverStyle.STRICT`, todėl neteisingos kalendorinės datos (pavyzdžiui, `2030-02-30 15:00`) atmetamos.
-
-## Demonstraciniai duomenys
-
-Programoje iš anksto sukurti du studentai:
-
-| Studentas | Studento ID | Bendrabučio ID |
-|---|---:|---:|
-| Studentas A | 101 | 1 |
-| Studentas B | 101 | 2 |
-
-Abiejuose bendrabučiuose yra po dvi skalbimo mašinas:
-
-| Bendrabutis | Mašinos numeriai |
-|---|---|
-| 1 | 2 ir 3 |
-| 2 | 2 ir 3 |
-
-**Studentų ir mašinų ID specialiai kartojasi skirtinguose bendrabučiuose.** Tai padeda parodyti, kad duomenys turi būti atskiriami pagal bendrabučio ID, o ne vien pagal studento ar mašinos numerį.
-
-Pasibaigus konsolės įvesties srautui (EOF), programa tvarkingai baigia darbą, taip pat ir įvedant mašinos numerį, datą ar atšaukimo numerį. Įprastai išeinama pasirinkus `0`.
-
-Meniu pasirinkimas `4` pakeičia aktyvų demonstracinį studentą. Tai **nėra autentifikavimo sistema**.
-
-## Programos demonstravimo scenarijai
-
-Toliau pateikiami veiksmai, kuriuos galima parodyti paleidus programą. Pasirinkta data yra demonstracinė; jei ji jau būtų praėjusi, reikia pasirinkti vėlesnę.
-
-### 1. Sėkmingas rezervavimas ir laiko konfliktas
-
-1. Pasirinkti Studentą A (jis aktyvus paleidžiant programą).
-2. Pasirinkti `1`, mašiną `2`, laiką `2030-11-22 15:00` – rezervacija sukuriama.
-3. Dar kartą pasirinkti `1`, mašiną `2`, laiką `2030-11-22 15:30` – rezervacija atmetama, nes laikas persidengia.
-4. Pasirinkti `1`, mašiną `2`, laiką `2030-11-22 16:00` – gretima rezervacija leidžiama.
-5. Pasirinkti `2` – matomos Studento A rezervacijos.
-
-### 2. Dviejų bendrabučių duomenų atskyrimas
-
-1. Studentas A rezervuoja savo bendrabučio mašiną `2` laikui `2030-11-23 15:00`.
-2. Pasirinkti `4` ir pereiti prie Studento B.
-3. Pasirinkti `2` – Studento A rezervacija **nerodoma**.
-4. Studentas B gali savo bendrabučio mašiną `2` rezervuoti **tuo pačiu laiku**, nes tai kita mašina kitame bendrabutyje.
-5. Užsirašyti naujos Studento B rezervacijos numerį.
-6. Pasirinkti `4` ir grįžti prie Studento A.
-7. Pasirinkti `3` ir įvesti Studento B rezervacijos numerį – atšaukimas **atmetamas**.
-8. Grįžti prie Studento B ir pasirinkti `2` – jo rezervacija tebėra išsaugota.
-
-Skirtingų studentų privatumas **tame pačiame bendrabutyje** taip pat tikrinamas atskirais JUnit testais. Konsoliniame meniu demonstravimui iš anksto sukurti tik du studentai iš skirtingų bendrabučių.
-
-## Automatiniai testai (JUnit 5)
-
-Iš viso projekte yra **19 automatinių testų**, visi faile `src/test/java/ReservationServiceTest.java`.
-
-### Rezervacijų kūrimas ir konfliktai – 7 testai
-
-| Nr. | Testo metodas | Ką tikrina |
-|---:|---|---|
-| 1 | `createsReservationInOwnDormitory()` | Tikrinama, ar rezervacija išsaugoma su teisingais studento, mašinos, bendrabučio ID bei pradžios ir pabaigos laikais. |
-| 2 | `rejectsMachineFromOtherDormitory()` | Bandymas rezervuoti svetimo bendrabučio mašiną atmetamas; rezervacija neišsaugoma. |
-| 3 | `rejectsOverlappingReservationsForSameMachine()` | Antras studentas negali rezervuoti tos pačios mašinos 15:30, kai ji užimta 15:00–16:00. |
-| 4 | `allowsAdjacentReservationsForSameMachine()` | Skirtingi studentai gali rezervuoti tą pačią mašiną 15:00–16:00 ir 16:00–17:00. |
-| 5 | `rejectsOverlappingReservationsForSameUser()` | Tas pats studentas negali rezervuoti kitos mašinos persidengiančiu laiku. |
-| 6 | `allowsAdjacentReservationsForSameUser()` | Tas pats studentas gali rezervuoti skirtingas mašinas gretimais intervalais. |
-| 7 | `rejectsReservationOverlappingFromEarlierStart()` | Atmetama 14:30–15:30 rezervacija, kai ta pati mašina jau užimta 15:00–16:00. |
-
-### Laiko tikrinimas – 6 testai
-
-| Nr. | Testo metodas | Ką tikrina |
-|---:|---|---|
-| 8 | `rejectsReservationBeforeOpeningTime()` | Atmetama rezervacija nuo 06:30 – prieš darbo pradžią. |
-| 9 | `rejectsReservationEndingAfterClosingTime()` | Atmetama rezervacija nuo 22:30, nes jos pabaiga būtų 23:30. |
-| 10 | `allowsReservationEndingAtClosingTime()` | Leidžiama rezervacija nuo 22:00 iki 23:00. |
-| 11 | `rejectsPastReservation()` | Neleidžiama kurti rezervacijos praeityje. |
-| 12 | `rejectsReservationAtCurrentTime()` | Neleidžiama kurti rezervacijos, prasidedančios tiksliai dabartiniu momentu. |
-| 13 | `allowsReservationStartingAtOpeningTime()` | Leidžiama rezervacija tiksliai 07:00–08:00; tikrinamas jos pradžios ir pabaigos laikas. |
-
-### Studentų ir bendrabučių duomenų atskyrimas – 4 testai
-
-| Nr. | Testo metodas | Ką tikrina |
-|---:|---|---|
-| 14 | `cannotSeeOtherDormitoryReservationsWithSameUserId()` | Abu studentai mato tik savo bendrabučio rezervaciją, nors jų ID yra `101`, o mašinų numeriai taip pat sutampa. |
-| 15 | `cannotCancelOtherDormitoryReservation()` | Studentas A negali atšaukti Studento B rezervacijos iš kito bendrabučio; rezervacija lieka išsaugota. |
-| 16 | `cannotSeeOtherStudentsReservationsInSameDormitory()` | Studentas mato tik savo, o ne kito studento rezervacijas tame pačiame bendrabutyje. |
-| 17 | `cannotCancelOtherStudentsReservationInSameDormitory()` | Studentas negali atšaukti kito to paties bendrabučio studento rezervacijos. |
-
-### Rezervacijos atšaukimas – 2 testai
-
-| Nr. | Testo metodas | Ką tikrina |
-|---:|---|---|
-| 18 | `ownerCanCancelOwnReservation()` | Studentas gali atšaukti savo rezervaciją; ji dingsta, o kito studento rezervacija išlieka. |
-| 19 | `allowsReservationAfterCancellation()` | Atšaukus rezervaciją galima iš naujo rezervuoti tą pačią mašiną tuo pačiu laiku. |
-
-### Kaip veikia testai?
-
-`ReservationServiceTest.java` naudojamas **fiksuotas laikrodis** (`Clock.fixed()`), nustatytas į `2030-11-19 12:00 UTC`. Tai leidžia patikrinti „praeities“, „dabarties“ ir „ateities“ scenarijus nepriklausomai nuo realios testų paleidimo datos.
-
-Svarbiausi JUnit patikrinimai:
-
-- `assertEquals(expected, actual)` – patikrina, ar faktinis rezultatas lygus laukiamam;
-- `assertThrows(...)` – patikrina, ar neteisingas veiksmas sukelia numatyto tipo išimtį.
-
-### Testų paleidimas
-
-**macOS / Linux:**
+Po Docker Desktop paleidimo projekto aplanke vykdykite:
 
 ```bash
-./mvnw clean test
+docker compose run --build --rm app mvn test
 ```
 
-**Windows (PowerShell):**
+2026-11-22 vietoje paleista `docker compose run --build --rm app mvn test`: **30 testų, 0 nesėkmių, 0 klaidų, 0 praleidimų, BUILD SUCCESS**. Integracijos testai vykdyti su PostgreSQL.
 
-```powershell
-.\mvnw.cmd clean test
-```
+| Testų klasė | Ką įrodo |
+| --- | --- |
+| [ReservationServiceTest](src/test/java/ReservationServiceTest.java) | Pagrindinė rezervavimo taisyklė, intervalų ribos, bendrabučių ir gyventojų atskyrimas |
+| [ReservationSettingsTest](src/test/java/ReservationSettingsTest.java) | A 90 / B 60 minučių, laisvi laikai ir prasidėjusių rezervacijų ribojimas |
+| [PostgresReservationRepositoryTest](src/test/java/PostgresReservationRepositoryTest.java) | Rezervacijos įrašymas, perskaitymas nauju DB prieigos objektu ir bendrabučių atskyrimas |
+| [WebServerIntegrationTest](src/test/java/WebServerIntegrationTest.java) | HTTP prisijungimas, rolės, 403 svetimam bendrabučiui, paskyros kūrimas ir nustatymo poveikis |
 
-Norint paleisti testus be išankstinio išvalymo, galima naudoti `./mvnw test` (Windows – `.\mvnw.cmd test`).
+Iš viso yra 25 vienetiniai ir 5 integraciniai testai. Pirmosios dvi klasės veikia be DB. Dvi integracijos testų klasės pilnai vykdomos nurodyta Docker komanda; be `JDBC_URL` jų testai praleidžiami.
 
-Sėkmingai įvykdžius testus, Maven pateikia `BUILD SUCCESS`. Naujausią rezultatą reikia patikrinti paleidžiant testus vietiniame projekto aplanke.
+## Kur rasti kodą
 
-## Projekto struktūra
+| Veiksmas | Pradėti nuo |
+| --- | --- |
+| Paleidimas ir URL parinkimas | [WebServer.main / handle](src/main/java/WebServer.java) |
+| Prisijungimas ir bendrabučio teisės | [WebServer](src/main/java/WebServer.java), [PostgresAccounts](src/main/java/PostgresAccounts.java) |
+| Rezervacijos sukūrimas ir taisyklės | [WebServer.createReservation](src/main/java/WebServer.java) → [ReservationService.createReservation](src/main/java/ReservationService.java#L20) → [PostgresReservationRepository.save](src/main/java/PostgresReservationRepository.java#L39) |
+| Laisvi laikai, savos rezervacijos, atšaukimas | [ReservationService.getAvailableStartTimes](src/main/java/ReservationService.java#L118), `getMyReservations`, `cancelReservation` |
+| Atskiri bendrabučio nustatymai | [PostgresSettingsAdmin](src/main/java/PostgresSettingsAdmin.java), [PostgresReservationSettingsSource](src/main/java/PostgresReservationSettingsSource.java#L19) |
+| DB lentelės ir paskyros | [init.sql](database/init.sql), [accounts.sql](database/accounts.sql) |
 
-```text
-.
-├── pom.xml
-├── README.md
-├── I_etapas_projektavimo_dokumentas.md
-├── mvnw
-├── mvnw.cmd
-├── .mvn/
-└── src/
-    ├── main/java/
-    │   ├── Main.java
-    │   ├── ReservationService.java
-    │   ├── ReservationRepository.java
-    │   ├── Reservation.java
-    │   ├── User.java
-    │   └── WashingMachine.java
-    └── test/java/
-        └── ReservationServiceTest.java
-```
-
-| Failas / klasė | Pagrindinė atsakomybė |
-|---|---|
-| `Main` | Konsolės meniu, įvestis, demonstracinių studentų parinkimas, rezultatų pateikimas |
-| `ReservationService` | Rezervavimo taisyklių, konfliktų ir prieigos teisių tikrinimas |
-| `ReservationRepository` | Rezervacijų saugojimas, paieška, ID generavimas ir šalinimas |
-| `Reservation` | Rezervacijos ID, studento, bendrabučio, mašinos ir laiko duomenys |
-| `User` | Studento ID, vardas ir bendrabučio ID |
-| `WashingMachine` | Skalbimo mašinos ID ir jos bendrabučio ID |
-| `ReservationServiceTest` | Rezervavimo logikos ir duomenų izoliavimo testai |
-| `pom.xml` | Maven ir JUnit projekto nustatymai |
-
-## Kodo struktūra ir OOP principai
-
-Programa suskirstyta į tris pagrindines dalis: konsolinę sąsają, verslo logiką ir duomenų saugojimą. Toks atsakomybių atskyrimas padeda lengviau suprasti, prižiūrėti ir testuoti programos kodą.
-
-- **Inkapsuliacija:** modelių klasių duomenys saugomi privačiuose laukuose (`private final`), o jų reikšmės pasiekiamos per `get...()` metodus.
-- **Vienos atsakomybės principas (SRP):** `Main` atsakinga už naudotojo įvestį ir rezultatų pateikimą, `ReservationService` – rezervavimo taisyklių tikrinimą, o `ReservationRepository` – rezervacijų saugojimą ir paiešką.
-- **Priklausomybių perdavimas per konstruktorių:** `ReservationService` reikalingos priklausomybės perduodamos per konstruktorių. Tai leidžia testuose naudoti fiksuotą laikrodį (`Clock`) ir patikrinti nuo laiko priklausančias rezervavimo taisykles.
-
-## II etapo apimtis ir apribojimai
-
-Įgyvendintas veikiantis **konsolinis rezervavimo prototipas**. Svarbūs dabartinės versijos apribojimai:
-
-- Rezervacijos saugomos operatyviojoje atmintyje, todėl uždarius programą duomenys neišlieka. Duomenų bazė šiame etape nenaudojama.
-- Tikro prisijungimo ir autentifikavimo nėra; aktyvus studentas keičiamas demonstraciniu meniu.
-- Visiems bendrabučiams taikoma ta pati **1 valandos** rezervacijos trukmė ir **07:00–23:00** darbo laikas.
-- Atskiros laisvų rezervavimo laikų peržiūros funkcijos nėra.
-- „Mano rezervacijos“ sąraše jau praėjusios rezervacijos nefiltruojamos.
-- Atšaukiant rezervaciją tikrinama jos priklausomybė studentui, bet **netikrinama**, ar rezervacija jau prasidėjusi.
-
-I etapo projektavimo dokumente numatytas platesnis funkcionalumas gali būti plėtojamas vėlesniuose projekto etapuose.
+Patvirtinto [I etapo plano](I_etapas_projektavimo_dokumentas.md) keturios gyventojo funkcijos ir palaikomumo tikslas išlaikyti. II etapo rezervavimo taisyklių testai vykdomi ir galutinėje sistemoje. III etape pridėta PostgreSQL, prisijungimas, administratoriaus veiksmai ir paprastas HTML puslapis.
