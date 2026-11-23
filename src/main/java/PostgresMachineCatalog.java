@@ -6,18 +6,18 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-public class PostgresCatalog {
+public class PostgresMachineCatalog {
     private final String url;
     private final String username;
     private final String password;
 
-    public PostgresCatalog(String url, String username, String password) {
+    public PostgresMachineCatalog(String url, String username, String password) {
         this.url = url;
         this.username = username;
         this.password = password;
     }
 
-    public List<WashingMachine> findMachines(int dormitoryId) {
+    public List<WashingMachine> findMachinesByDormitoryId(int dormitoryId) {
         List<WashingMachine> machines = new ArrayList<>();
         try (Connection connection = DriverManager.getConnection(url, username, password);
              PreparedStatement statement = connection.prepareStatement(

@@ -4,12 +4,12 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-public class PostgresReservationSettingsSource implements ReservationSettingsSource {
+public class PostgresReservationSettingsRepository implements ReservationSettingsSource {
     private final String url;
     private final String username;
     private final String password;
 
-    public PostgresReservationSettingsSource(String url, String username, String password) {
+    public PostgresReservationSettingsRepository(String url, String username, String password) {
         this.url = url;
         this.username = username;
         this.password = password;
@@ -33,6 +33,23 @@ public class PostgresReservationSettingsSource implements ReservationSettingsSou
             }
         } catch (SQLException exception) {
             throw new IllegalStateException("Nepavyko perskaityti bendrabucio nustatymu.", exception);
+        }
+    }
+
+    public void updateReservationDuration(int dormitoryId, int minutes) {
+        if (minutes < 1 || minutes > 960) {
+            throw new IllegalArgumentException("Trukme turi buti nuo 1 iki 960 minuciu.");
+        }
+        try (Connection connection = DriverManager.getConnection(url, username, password);
+             PreparedStatement statement = connection.prepareStatement(
+                     "UPDATE dormitories SET reservation_minutes = ? WHERE id = ?")) {
+            statement.setInt(1, minutes);
+            statement.setInt(2, dormitoryId);
+            if (statement.executeUpdate() != 1) {
+                throw new IllegalArgumentException("Bendrabutis nerastas.");
+            }
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Nepavyko pakeisti trukmes.", exception);
         }
     }
 }

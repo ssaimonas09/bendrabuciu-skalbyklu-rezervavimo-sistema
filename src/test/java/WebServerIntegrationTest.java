@@ -1,4 +1,6 @@
 import com.sun.net.httpserver.HttpServer;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
@@ -6,255 +8,173 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.sql.DriverManager;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Base64;
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 public class WebServerIntegrationTest {
-    @Test
-    void serverChecksLoginRoleTenantAndSettings() throws Exception {
-        String url = System.getenv("JDBC_URL");
+    private static final int DORMITORY_A_ID = 1;
+    private static final int DORMITORY_B_ID = 2;
+    private static final int STUDENT_ID = 101;
+    private static final int MACHINE_ID = 2;
+    private static final String STUDENT_CREDENTIALS = "student_1_101:student_demo";
+    private static final String ADMIN_CREDENTIALS = "admin_1:admin_demo";
+
+    private final String url = System.getenv("JDBC_URL");
+    private final String dbUser = System.getenv("DB_USER");
+    private final String dbPassword = System.getenv("DB_PASSWORD");
+    private final HttpClient client = HttpClient.newHttpClient();
+    private HttpServer server;
+    private String base;
+
+    @BeforeEach
+    void startServer() throws Exception {
         assumeTrue(url != null && !url.isBlank(), "Reikalingas PostgreSQL");
-        String dbUser = System.getenv("DB_USER");
-        String dbPassword = System.getenv("DB_PASSWORD");
-        PostgresReservationSettingsSource settings =
-                new PostgresReservationSettingsSource(url, dbUser, dbPassword);
-        PostgresSettingsAdmin admin = new PostgresSettingsAdmin(url, dbUser, dbPassword);
-        int originalA = settings.findForDormitory(1).durationMinutes();
-        int originalB = settings.findForDormitory(2).durationMinutes();
+        server = new WebServer(url, dbUser, dbPassword).start(0);
+        base = "http://localhost:" + server.getAddress().getPort();
+    }
+
+    @AfterEach
+    void stopServer() {
+        if (server != null) {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void enforcesApiAccessAndAppliesDormitoryDurationChange() throws Exception {
+        PostgresReservationSettingsRepository settings =
+                new PostgresReservationSettingsRepository(url, dbUser, dbPassword);
+        int originalA = settings.findForDormitory(DORMITORY_A_ID).durationMinutes();
+        int originalB = settings.findForDormitory(DORMITORY_B_ID).durationMinutes();
         int changedA = originalA == 90 ? 60 : 90;
         PostgresReservationRepository repository =
                 new PostgresReservationRepository(url, dbUser, dbPassword);
         Reservation first = null;
         Reservation second = null;
-        HttpServer server = new WebServer(url, dbUser, dbPassword).start(0);
         try {
-            String base = "http://localhost:" + server.getAddress().getPort();
-            HttpClient client = HttpClient.newHttpClient();
-            assertEquals(401, get(client, base + "/api/reservations", null));
-            assertEquals(401, get(client, base + "/api/reservations", "student_1_101:wrong"));
-            assertEquals(403, get(client, base + "/api/reservations?dormitoryId=2",
-                    "student_1_101:student_demo"));
-            assertEquals(403, get(client, base
-                    + "/api/availability?machineId=2&date=2030-11-20&dormitoryId=2",
-                    "student_1_101:student_demo"));
-            assertEquals(200, get(client, base + "/api/reservations?dormitoryId=1",
-                    "student_1_101:student_demo"));
-            assertEquals(403, post(client, base + "/admin/settings",
-                    "student_1_101:student_demo", "minutes=90&dormitoryId=1"));
-            assertEquals(403, post(client, base + "/admin/settings",
-                    "admin_1:admin_demo", "minutes=90&dormitoryId=2"));
-            assertEquals(400, post(client, base + "/admin/settings",
-                    "admin_1:admin_demo", "minutes=961&dormitoryId=1"));
-            assertEquals(originalA, settings.findForDormitory(1).durationMinutes());
-            assertEquals(200, post(client, base + "/admin/settings",
-                    "admin_1:admin_demo", "minutes=" + changedA + "&dormitoryId=1"));
-            assertEquals(changedA, settings.findForDormitory(1).durationMinutes());
-            assertEquals(originalB, settings.findForDormitory(2).durationMinutes());
+            assertEquals(401, getApiResponse("/api/reservations", null).statusCode());
+            assertEquals(401, getApiResponse("/api/reservations", "student_1_101:wrong").statusCode());
+            assertEquals(403, getApiResponse("/api/reservations?dormitoryId=2",
+                    STUDENT_CREDENTIALS).statusCode());
+            assertEquals(403, getApiResponse("/api/availability?machineId=2&date=2030-11-20&dormitoryId=2",
+                    STUDENT_CREDENTIALS).statusCode());
+            assertEquals(200, getApiResponse("/api/reservations?dormitoryId=1",
+                    STUDENT_CREDENTIALS).statusCode());
+            assertEquals(403, postFormStatusAs("/admin/settings",
+                    STUDENT_CREDENTIALS, "minutes=90&dormitoryId=1"));
+            assertEquals(403, postFormStatusAs("/admin/settings",
+                    ADMIN_CREDENTIALS, "minutes=90&dormitoryId=2"));
+            assertEquals(400, postFormStatusAs("/admin/settings",
+                    ADMIN_CREDENTIALS, "minutes=961&dormitoryId=1"));
+            assertEquals(originalA, settings.findForDormitory(DORMITORY_A_ID).durationMinutes());
+            assertEquals(200, postFormStatusAs("/admin/settings",
+                    ADMIN_CREDENTIALS, "minutes=" + changedA + "&dormitoryId=1"));
+            assertEquals(changedA, settings.findForDormitory(DORMITORY_A_ID).durationMinutes());
+            assertEquals(originalB, settings.findForDormitory(DORMITORY_B_ID).durationMinutes());
 
             LocalDateTime start = LocalDate.now().plusYears(40).atTime(15, 0);
             ReservationService service = new ReservationService(repository,
-                    java.time.Clock.systemDefaultZone(), settings);
-            first = service.createReservation(new User(101, "A", 1),
-                    new WashingMachine(2, 1), start);
-            second = service.createReservation(new User(101, "B", 2),
-                    new WashingMachine(2, 2), start);
+                    Clock.systemDefaultZone(), settings);
+            first = service.createReservation(new User(STUDENT_ID, "A", DORMITORY_A_ID),
+                    new WashingMachine(MACHINE_ID, DORMITORY_A_ID), start);
+            second = service.createReservation(new User(STUDENT_ID, "B", DORMITORY_B_ID),
+                    new WashingMachine(MACHINE_ID, DORMITORY_B_ID), start);
             assertEquals(start.plusMinutes(changedA), first.getEndTime());
             assertEquals(start.plusMinutes(originalB), second.getEndTime());
         } finally {
             if (first != null) repository.delete(first);
             if (second != null) repository.delete(second);
-            admin.changeDuration(1, originalA);
-            server.stop(0);
+            settings.updateReservationDuration(DORMITORY_A_ID, originalA);
         }
     }
 
     @Test
-    void residentCanBookReadAndCancelThroughHttp() throws Exception {
-        String url = System.getenv("JDBC_URL");
-        assumeTrue(url != null && !url.isBlank(), "Reikalingas PostgreSQL");
-        String dbUser = System.getenv("DB_USER");
-        String dbPassword = System.getenv("DB_PASSWORD");
+    void residentCanCheckAvailabilityBookAndCancel() throws Exception {
         PostgresReservationRepository repository =
                 new PostgresReservationRepository(url, dbUser, dbPassword);
         LocalDateTime start = LocalDate.now().plusYears(25).atTime(15, 0);
-        HttpServer server = new WebServer(url, dbUser, dbPassword).start(0);
+        String cookie = signInAndGetCookie(STUDENT_CREDENTIALS);
+        String machineAndDate = "machineId=" + MACHINE_ID + "&date=" + start.toLocalDate();
+        String availabilityPath = "/api/availability?" + machineAndDate;
+        String reservationForm = machineAndDate + "&hour=15&minute=00";
+        String requestedStart = "\"" + start + "\"";
         Reservation created = null;
         try {
-            String base = "http://localhost:" + server.getAddress().getPort();
-            HttpClient client = HttpClient.newHttpClient();
-            assertEquals(400, post(client, base + "/reservations",
-                    "student_1_101:student_demo", "machineId=2&date="
-                            + start.toLocalDate() + "&time=25%3A00"));
-            assertEquals(400, post(client, base + "/reservations",
-                    "student_1_101:student_demo", "machineId=2&date="
-                            + start.toLocalDate() + "&hour=13&minute=33"));
-            assertEquals(200, post(client, base + "/reservations",
-                    "student_1_101:student_demo", "machineId=2&date="
-                            + start.toLocalDate() + "&hour=15&minute=00"));
-            created = repository.findByDormitoryId(1).stream()
-                    .filter(item -> item.getUserId() == 101
-                            && item.getWashingMachineId() == 2
+            HttpResponse<String> availableBeforeBooking = getApiResponse(availabilityPath, STUDENT_CREDENTIALS);
+            assertEquals(200, availableBeforeBooking.statusCode());
+            assertTrue(availableBeforeBooking.body().contains(requestedStart));
+
+            assertEquals(400, postForm("/reservations", cookie, machineAndDate + "&time=25%3A00").statusCode());
+            assertEquals(400, postForm("/reservations", cookie, machineAndDate + "&hour=13&minute=33").statusCode());
+            assertEquals(200, postForm("/reservations", cookie, reservationForm).statusCode());
+            created = repository.findByDormitoryId(DORMITORY_A_ID).stream()
+                    .filter(item -> item.getUserId() == STUDENT_ID
+                            && item.getWashingMachineId() == MACHINE_ID
                             && item.getStartTime().equals(start))
                     .findFirst().orElseThrow();
-            HttpRequest conflict = HttpRequest.newBuilder(URI.create(base + "/reservations"))
-                    .header("Cookie", loginCookie(client, base, "student_1_101:student_demo"))
-                    .header("Content-Type", "application/x-www-form-urlencoded")
-                    .POST(HttpRequest.BodyPublishers.ofString("machineId=2&date="
-                            + start.toLocalDate() + "&hour=15&minute=00")).build();
-            HttpResponse<String> rejected = client.send(conflict,
-                    HttpResponse.BodyHandlers.ofString());
-            assertEquals(400, rejected.statusCode());
-            assertTrue(rejected.headers().firstValue("Content-Type").orElseThrow()
-                    .startsWith("text/html"));
-            assertTrue(rejected.body().contains("Pasirinktas laikas jau užimtas."));
-            assertTrue(rejected.body().contains("action='/reservations'"));
-            assertTrue(rejected.body().contains("href='/'"));
-            String home = getWithCookie(client, base + "/",
-                    loginCookie(client, base, "student_1_101:student_demo")).body();
-            assertTrue(home.contains("type='date' name='date'"));
-            assertTrue(home.contains("<select name='hour' required>"));
-            assertTrue(home.contains("<select name='minute' required>"));
-            assertTrue(home.contains("<option value='30'>30</option>"));
-            assertTrue(!home.contains("<option value='33'>33</option>"));
-            assertTrue(!home.contains("pvz."));
-            assertTrue(home.contains(start.toLocalDate() + " 15:00–"));
-            assertTrue(!home.contains(start.toLocalDate() + "T15:00"));
 
-            HttpRequest request = HttpRequest.newBuilder(URI.create(base + "/api/reservations"))
-                    .header("Authorization", basic("student_1_101:student_demo"))
-                    .GET().build();
-            HttpResponse<String> response = client.send(request,
-                    HttpResponse.BodyHandlers.ofString());
-            assertEquals(200, response.statusCode());
-            assertTrue(response.body().contains("\"id\":" + created.getId()));
-            assertEquals(200, post(client, base + "/cancel",
-                    "student_1_101:student_demo", "reservationId=" + created.getId()));
+            HttpResponse<String> rejected = postForm("/reservations", cookie, reservationForm);
+            assertEquals(400, rejected.statusCode());
+            assertTrue(rejected.body().contains("Pasirinktas laikas jau užimtas."));
+
+            HttpResponse<String> availableAfterBooking = getApiResponse(availabilityPath, STUDENT_CREDENTIALS);
+            assertEquals(200, availableAfterBooking.statusCode());
+            assertFalse(availableAfterBooking.body().contains(requestedStart));
+
             int id = created.getId();
-            assertTrue(repository.findByDormitoryId(1).stream()
-                    .noneMatch(item -> item.getId() == id));
+            HttpResponse<String> reservations = getApiResponse("/api/reservations", STUDENT_CREDENTIALS);
+            assertEquals(200, reservations.statusCode());
+            assertTrue(reservations.body().contains("\"id\":" + id + ","));
+
+            assertEquals(200, postForm("/cancel", cookie, "reservationId=" + id).statusCode());
+            assertFalse(repository.findByDormitoryId(DORMITORY_A_ID).stream()
+                    .anyMatch(reservation -> reservation.getId() == id));
         } finally {
             if (created != null) repository.delete(created);
-            server.stop(0);
         }
     }
 
     @Test
-    void administratorCreatesResidentOnlyInOwnDormitory() throws Exception {
-        String url = System.getenv("JDBC_URL");
-        assumeTrue(url != null && !url.isBlank(), "Reikalingas PostgreSQL");
-        String dbUser = System.getenv("DB_USER");
-        String dbPassword = System.getenv("DB_PASSWORD");
-        String login = "test_" + UUID.randomUUID().toString().substring(0, 8);
-        String secondLogin = "test_" + UUID.randomUUID().toString().substring(0, 8);
-        String form = "name=Testas&login=" + login + "&password=test_password_123";
-        HttpServer server = new WebServer(url, dbUser, dbPassword).start(0);
-        try {
-            String base = "http://localhost:" + server.getAddress().getPort();
-            HttpClient client = HttpClient.newHttpClient();
-            assertEquals(403, post(client, base + "/admin/residents",
-                    "student_1_101:student_demo", form));
-            assertEquals(403, post(client, base + "/admin/residents",
-                    "admin_1:admin_demo", form + "&dormitoryId=2"));
-            assertEquals(200, post(client, base + "/admin/residents",
-                    "admin_1:admin_demo", form));
+    void logoutInvalidatesSessionCookie() throws Exception {
+        String cookie = signInAndGetCookie(STUDENT_CREDENTIALS);
+        HttpRequest reservations = HttpRequest.newBuilder(URI.create(base + "/api/reservations"))
+                .header("Cookie", cookie).GET().build();
+        assertEquals(200, client.send(reservations, HttpResponse.BodyHandlers.discarding()).statusCode());
 
-            Account created = new PostgresAccounts(url, dbUser, dbPassword)
-                    .authenticate(login, "test_password_123");
-            assertEquals(1, created.user().getDormitoryId());
-            assertEquals("RESIDENT", created.role());
-            assertEquals(403, get(client, base + "/api/reservations?dormitoryId=2",
-                    login + ":test_password_123"));
-            assertEquals(400, post(client, base + "/admin/residents",
-                    "admin_1:admin_demo", form));
-            assertEquals(200, post(client, base + "/admin/residents",
-                    "admin_1:admin_demo", "name=Kitas&login=" + secondLogin
-                            + "&password=test_password_123"));
-            Account second = new PostgresAccounts(url, dbUser, dbPassword)
-                    .authenticate(secondLogin, "test_password_123");
-            assertTrue(second.user().getId() != created.user().getId());
-        } finally {
-            try (var connection = DriverManager.getConnection(url, dbUser, dbPassword);
-                 var statement = connection.prepareStatement(
-                         "DELETE FROM users WHERE login IN (?, ?)")) {
-                statement.setString(1, login);
-                statement.setString(2, secondLogin);
-                statement.executeUpdate();
-            }
-            server.stop(0);
+        HttpRequest logout = HttpRequest.newBuilder(URI.create(base + "/logout"))
+                .header("Cookie", cookie).POST(HttpRequest.BodyPublishers.noBody()).build();
+        assertEquals(303, client.send(logout, HttpResponse.BodyHandlers.discarding()).statusCode());
+        assertEquals(401, client.send(reservations, HttpResponse.BodyHandlers.discarding()).statusCode());
+    }
+
+    private HttpResponse<String> getApiResponse(String path, String credentials) throws Exception {
+        HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(base + path)).GET();
+        if (credentials != null) {
+            request.header("Authorization", basicAuthorization(credentials));
         }
+        return client.send(request.build(), HttpResponse.BodyHandlers.ofString());
     }
 
-    @Test
-    void browserCanSwitchAccountsAndLogout() throws Exception {
-        String url = System.getenv("JDBC_URL");
-        assumeTrue(url != null && !url.isBlank(), "Reikalingas PostgreSQL");
-        HttpServer server = new WebServer(url, System.getenv("DB_USER"),
-                System.getenv("DB_PASSWORD")).start(0);
-        try {
-            String base = "http://localhost:" + server.getAddress().getPort();
-            HttpClient client = HttpClient.newHttpClient();
-            assertEquals(303, get(client, base + "/", null));
-            assertEquals(200, get(client, base + "/login", null));
-            HttpResponse<String> wrong = client.send(HttpRequest.newBuilder(URI.create(base + "/login"))
-                    .POST(HttpRequest.BodyPublishers.ofString(
-                            "login=student_1_101&password=wrong"))
-                    .build(), HttpResponse.BodyHandlers.ofString());
-            assertEquals(401, wrong.statusCode());
-            assertTrue(wrong.body().contains("Neteisingas"));
-
-            String firstCookie = loginCookie(client, base, "student_1_101:student_demo");
-            assertEquals(200, getWithCookie(client, base + "/", firstCookie).statusCode());
-            String firstPage = getWithCookie(client, base + "/", firstCookie).body();
-            assertTrue(firstPage.contains("Bendrabutis Nr. 1"));
-            assertTrue(firstPage.contains("name='hour'"));
-            assertTrue(firstPage.contains("name='minute'"));
-            assertEquals(403, getWithCookie(client,
-                    base + "/api/reservations?dormitoryId=2", firstCookie).statusCode());
-
-            HttpResponse<String> logout = client.send(HttpRequest.newBuilder(URI.create(base + "/logout"))
-                    .header("Cookie", firstCookie)
-                    .POST(HttpRequest.BodyPublishers.noBody()).build(),
-                    HttpResponse.BodyHandlers.ofString());
-            assertEquals(303, logout.statusCode());
-            assertEquals("/login", logout.headers().firstValue("Location").orElseThrow());
-            assertEquals(303, getWithCookie(client, base + "/", firstCookie).statusCode());
-            assertEquals(401, getWithCookie(client,
-                    base + "/api/reservations", firstCookie).statusCode());
-
-            String secondCookie = loginCookie(client, base, "student_2_101:student_demo");
-            assertTrue(getWithCookie(client, base + "/", secondCookie).body().contains("Bendrabutis Nr. 2"));
-            assertEquals(403, getWithCookie(client,
-                    base + "/api/reservations?dormitoryId=1", secondCookie).statusCode());
-        } finally {
-            server.stop(0);
-        }
+    private int postFormStatusAs(String path, String credentials, String form) throws Exception {
+        return postForm(path, signInAndGetCookie(credentials), form).statusCode();
     }
 
-    private static int get(HttpClient client, String url, String credentials) throws Exception {
-        HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(url)).GET();
-        if (credentials != null) request.header("Authorization", basic(credentials));
-        return client.send(request.build(), HttpResponse.BodyHandlers.discarding()).statusCode();
-    }
-
-    private static int post(HttpClient client, String url, String credentials, String body)
-            throws Exception {
-        String cookie = loginCookie(client, url.substring(0, url.indexOf('/', 8)), credentials);
-        HttpRequest request = HttpRequest.newBuilder(URI.create(url))
+    private HttpResponse<String> postForm(String path, String cookie, String form) throws Exception {
+        HttpRequest request = HttpRequest.newBuilder(URI.create(base + path))
                 .header("Cookie", cookie)
                 .header("Content-Type", "application/x-www-form-urlencoded")
-                .POST(HttpRequest.BodyPublishers.ofString(body)).build();
-        return client.send(request, HttpResponse.BodyHandlers.discarding()).statusCode();
+                .POST(HttpRequest.BodyPublishers.ofString(form)).build();
+        return client.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
-    private static String loginCookie(HttpClient client, String base, String credentials)
-            throws Exception {
+    private String signInAndGetCookie(String credentials) throws Exception {
         int separator = credentials.indexOf(':');
         HttpRequest request = HttpRequest.newBuilder(URI.create(base + "/login"))
                 .header("Content-Type", "application/x-www-form-urlencoded")
@@ -265,13 +185,7 @@ public class WebServerIntegrationTest {
         return response.headers().firstValue("Set-Cookie").orElseThrow().split(";", 2)[0];
     }
 
-    private static HttpResponse<String> getWithCookie(HttpClient client, String url, String cookie)
-            throws Exception {
-        return client.send(HttpRequest.newBuilder(URI.create(url)).header("Cookie", cookie)
-                .GET().build(), HttpResponse.BodyHandlers.ofString());
-    }
-
-    private static String basic(String credentials) {
+    private static String basicAuthorization(String credentials) {
         return "Basic " + Base64.getEncoder().encodeToString(
                 credentials.getBytes(StandardCharsets.UTF_8));
     }

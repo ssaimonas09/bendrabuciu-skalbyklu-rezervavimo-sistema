@@ -33,7 +33,7 @@ Sustabdymas: `docker compose down`. PostgreSQL duomenys išlieka Docker tome; jo
 
 - A gyventojas rezervuoja savo mašiną būsimam laikui, mato rezervaciją ir gali ją atšaukti. Jei mašina tuo metu užimta, rezervacija atmetama.
 - A gyventojo `GET /api/reservations?dormitoryId=2` grąžina 403. Be tinkamo prisijungimo API grąžina 401.
-- A administratorius keičia A trukmę iš 60 į 90 minučių; B trukmė lieka 60. Rezervacija nuo 15:00 A baigiasi 16:30, B – 16:00. Jei DB jau naudota, prieš bandymą abiejų administratorių formose nustatykite 60.
+- A administratorius keičia A trukmę iš 60 į 90 minučių; B trukmė lieka 60. Rezervacija nuo 15:00 A baigiasi 16:30, B – 16:00. Prieš bandymą abiejuose bendrabučiuose nustatykite 60 min. ir pasirinkite laisvą būsimą laiką. [Bandymo žingsniai ir rezultatai](III_etapas_architektura.md#pagrindinis-kokybės-atributas).
 - Gyventojas negali keisti administratoriaus nustatymų (403). A administratorius negali pakeisti B nustatymų (403).
 
 Puslapis naudoja HTML formas be JavaScript. Prisijungus serveris sukuria 8 valandų sesiją ir naršyklei perduoda `HttpOnly` slapuką; atsijungus sesija panaikinama. Perkrovus serverį reikia prisijungti iš naujo. JSON adresai: `GET /api/reservations` ir `GET /api/availability?machineId=2&date=2030-11-20`. Naršyklė juos pasiekia su sesijos slapuku; tiesioginės API užklausos taip pat priima `Authorization: Basic` antraštę, bet naršyklės puslapiai ją ignoruoja.
@@ -46,26 +46,30 @@ Po Docker Desktop paleidimo projekto aplanke vykdykite:
 docker compose run --build --rm app mvn test
 ```
 
-2026-11-22 vietoje paleista `docker compose run --build --rm app mvn test`: **30 testų, 0 nesėkmių, 0 klaidų, 0 praleidimų, BUILD SUCCESS**. Integracijos testai vykdyti su PostgreSQL.
+2026-11-23 vietoje paleista `docker compose run --build --rm app mvn test`: **13 testų, 0 nesėkmių, 0 klaidų, 0 praleidimų, BUILD SUCCESS**. Integracijos testai vykdyti su PostgreSQL.
 
 | Testų klasė | Ką įrodo |
 | --- | --- |
-| [ReservationServiceTest](src/test/java/ReservationServiceTest.java) | Pagrindinė rezervavimo taisyklė, intervalų ribos, bendrabučių ir gyventojų atskyrimas |
-| [ReservationSettingsTest](src/test/java/ReservationSettingsTest.java) | A 90 / B 60 minučių, laisvi laikai ir prasidėjusių rezervacijų ribojimas |
+| [ReservationServiceTest](src/test/java/ReservationServiceTest.java) | Rezervacijos sukūrimas, pradžia 07:00, praeities ir darbo valandų ribos, mašinos bei gyventojo konfliktai ir bendrabučių atskyrimas |
+| [ReservationSettingsTest](src/test/java/ReservationSettingsTest.java) | A rezervacija trunka 90 minučių, B – 60 minučių |
 | [PostgresReservationRepositoryTest](src/test/java/PostgresReservationRepositoryTest.java) | Rezervacijos įrašymas, perskaitymas nauju DB prieigos objektu ir bendrabučių atskyrimas |
-| [WebServerIntegrationTest](src/test/java/WebServerIntegrationTest.java) | HTTP prisijungimas, rolės, 403 svetimam bendrabučiui, paskyros kūrimas ir nustatymo poveikis |
+| [WebServerIntegrationTest](src/test/java/WebServerIntegrationTest.java) | Prisijungimas ir teisės, bendrabučio trukmės keitimas, laisvų laikų peržiūra, rezervacijos kūrimas, skaitymas ir atšaukimas. Atsijungus užklausa su tuo pačiu slapuku gauna 401. |
 
-Iš viso yra 25 vienetiniai ir 5 integraciniai testai. Pirmosios dvi klasės veikia be DB. Dvi integracijos testų klasės pilnai vykdomos nurodyta Docker komanda; be `JDBC_URL` jų testai praleidžiami.
+Iš viso yra 9 vienetiniai ir 4 integraciniai testai. Pirmosios dvi klasės veikia be DB. Dvi integracijos testų klasės pilnai vykdomos nurodyta Docker komanda; be `JDBC_URL` jų testai praleidžiami.
 
 ## Kur rasti kodą
 
 | Veiksmas | Pradėti nuo |
 | --- | --- |
-| Paleidimas ir URL parinkimas | [WebServer.main / handle](src/main/java/WebServer.java) |
-| Prisijungimas ir bendrabučio teisės | [WebServer](src/main/java/WebServer.java), [PostgresAccounts](src/main/java/PostgresAccounts.java) |
-| Rezervacijos sukūrimas ir taisyklės | [WebServer.createReservation](src/main/java/WebServer.java) → [ReservationService.createReservation](src/main/java/ReservationService.java#L20) → [PostgresReservationRepository.save](src/main/java/PostgresReservationRepository.java#L39) |
-| Laisvi laikai, savos rezervacijos, atšaukimas | [ReservationService.getAvailableStartTimes](src/main/java/ReservationService.java#L118), `getMyReservations`, `cancelReservation` |
-| Atskiri bendrabučio nustatymai | [PostgresSettingsAdmin](src/main/java/PostgresSettingsAdmin.java), [PostgresReservationSettingsSource](src/main/java/PostgresReservationSettingsSource.java#L19) |
+| Sesijos sukūrimas, paieška ir panaikinimas | [SessionManager](src/main/java/SessionManager.java) |
+| Formos ir URL laukų nuskaitymas | [RequestFields](src/main/java/RequestFields.java) |
+| HTML formos, sąrašai ir pranešimai | [PageRenderer](src/main/java/PageRenderer.java) |
+| HTTP maršrutai | [WebServer.routeAuthenticatedRequest](src/main/java/WebServer.java#L95) |
+| Prisijungimas, slapukas ir atsijungimas | [HttpAuthentication](src/main/java/HttpAuthentication.java), [PostgresAccounts](src/main/java/PostgresAccounts.java) |
+| Rolės ir bendrabučio prieiga | [WebServer](src/main/java/WebServer.java) |
+| Rezervacijos sukūrimas ir taisyklės | [WebServer.handleReservationCreation](src/main/java/WebServer.java#L138) → [ReservationService.createReservation](src/main/java/ReservationService.java#L20) → [PostgresReservationRepository.save](src/main/java/PostgresReservationRepository.java#L39) |
+| Laisvi laikai, savos rezervacijos, atšaukimas | [ReservationService.getAvailableStartTimes](src/main/java/ReservationService.java#L119), `getUpcomingReservationsForUser`, `cancelReservation` |
+| Atskiri bendrabučio nustatymai | [PostgresReservationSettingsRepository](src/main/java/PostgresReservationSettingsRepository.java#L19) |
 | DB lentelės ir paskyros | [init.sql](database/init.sql), [accounts.sql](database/accounts.sql) |
 
-Patvirtinto [I etapo plano](I_etapas_projektavimo_dokumentas.md) keturios gyventojo funkcijos ir palaikomumo tikslas išlaikyti. II etapo rezervavimo taisyklių testai vykdomi ir galutinėje sistemoje. III etape pridėta PostgreSQL, prisijungimas, administratoriaus veiksmai ir paprastas HTML puslapis.
+Patvirtinto [I etapo plano](I_etapas_projektavimo_dokumentas.md) keturios gyventojo funkcijos ir palaikomumo tikslas išlaikyti. Galutinėje versijoje testais tikrinamos II etape įgyvendintos rezervavimo taisyklės. III etape pridėta PostgreSQL, prisijungimas, administratoriaus veiksmai ir paprastas HTML puslapis.

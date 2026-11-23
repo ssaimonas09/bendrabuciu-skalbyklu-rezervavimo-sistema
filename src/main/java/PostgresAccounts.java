@@ -35,7 +35,7 @@ public class PostgresAccounts {
         }
     }
 
-    public void createResident(int dormitoryId, String name, String login, String password) {
+    public void createResidentAccount(int dormitoryId, String name, String login, String password) {
         name = name.trim();
         login = login.trim();
         if (name.isBlank() || name.length() > 100) {

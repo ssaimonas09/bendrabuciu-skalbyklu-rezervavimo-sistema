@@ -51,14 +51,15 @@ public class ReservationService {
             );
         }
 
-        if (hasMachineConflict(user.getDormitoryId(),
+        List<Reservation> reservations = repository.findByDormitoryId(user.getDormitoryId());
+        if (hasMachineConflict(reservations,
                 machine.getId(), startTime, endTime)) {
             throw new IllegalArgumentException(
                     "Pasirinktas laikas jau užimtas."
             );
         }
 
-        if (hasUserConflict(user.getDormitoryId(),
+        if (hasUserConflict(reservations,
                 user.getId(), startTime, endTime)) {
             throw new IllegalArgumentException(
                     "Studentas jau turi rezervaciją šiuo laiku."
@@ -79,9 +80,9 @@ public class ReservationService {
         return reservation;
     }
 
-    private boolean hasMachineConflict(int dormitoryId, int machineId,
+    private boolean hasMachineConflict(List<Reservation> reservations, int machineId,
                                        LocalDateTime start, LocalDateTime end) {
-        for (Reservation existing : repository.findByDormitoryId(dormitoryId)) {
+        for (Reservation existing : reservations) {
             boolean sameMachine = existing.getWashingMachineId() == machineId;
 
             boolean overlaps = overlapsExistingReservation(start, end, existing);
@@ -94,9 +95,9 @@ public class ReservationService {
         return false;
     }
 
-    private boolean hasUserConflict(int dormitoryId, int userId,
+    private boolean hasUserConflict(List<Reservation> reservations, int userId,
                                     LocalDateTime start, LocalDateTime end) {
-        for (Reservation existing : repository.findByDormitoryId(dormitoryId)) {
+        for (Reservation existing : reservations) {
             boolean sameUser = existing.getUserId() == userId;
 
             boolean overlaps = overlapsExistingReservation(start, end, existing);
@@ -136,34 +137,27 @@ public class ReservationService {
             }
 
             LocalDateTime end = start.plusMinutes(settings.durationMinutes());
-            boolean occupied = false;
-            for (Reservation reservation : reservations) {
-                if ((reservation.getWashingMachineId() == machine.getId()
-                        || reservation.getUserId() == user.getId())
-                        && overlapsExistingReservation(start, end, reservation)) {
-                    occupied = true;
-                    break;
-                }
-            }
-            if (!occupied) {
+            boolean hasConflict = hasMachineConflict(reservations, machine.getId(), start, end)
+                    || hasUserConflict(reservations, user.getId(), start, end);
+            if (!hasConflict) {
                 available.add(start);
             }
         }
         return available;
     }
 
-    public List<Reservation> getMyReservations(User user) {
-        List<Reservation> myReservations = new ArrayList<>();
+    public List<Reservation> getUpcomingReservationsForUser(User user) {
+        List<Reservation> upcomingReservations = new ArrayList<>();
 
         for (Reservation reservation :
                 repository.findByDormitoryId(user.getDormitoryId())) {
             if (reservation.getUserId() == user.getId()
                     && reservation.getStartTime().isAfter(LocalDateTime.now(clock))) {
-                myReservations.add(reservation);
+                upcomingReservations.add(reservation);
             }
         }
 
-        return myReservations;
+        return upcomingReservations;
     }
 
     public void cancelReservation(User user, int reservationId) {

@@ -1,44 +1,55 @@
 # Architektūros dokumentas
 
-**Projektas.** Bendrabučių skalbyklų rezervavimo sistema leidžia gyventojui matyti laisvus laikus, rezervuoti savo bendrabučio skalbimo mašiną, peržiūrėti ir atšaukti savo būsimas rezervacijas. Vienas Java serveris aptarnauja du bendrabučius; jų įrašai ir rezervavimo trukmės atskirti pagal bendrabučio ID.
+**Projektas.** Bendrabučių skalbyklų rezervavimo sistema. Vienas Java serveris aptarnauja du bendrabučius. Gyventojas gali rasti laisvą laiką, rezervuoti savo bendrabučio skalbimo mašiną ir peržiūrėti arba atšaukti savo būsimas rezervacijas. Kiekvieno bendrabučio trukmė ir įrašai saugomi pagal jo ID.
 
 ## Projektavimas galutinėje sistemoje
 
-**Naudotojo veiksmas.** A bendrabučio gyventojas prisijungia ir formoje pasirenka mašiną Nr. 2 bei būsimą datą, pavyzdžiui, 2031-01-15, ir 15:00 laiką. A bendrabučio trukmė šiame scenarijuje – 90 minučių; sėkmės atveju sukuriama 15:00–16:30 rezervacija. Serveris nustato gyventojo bendrabutį pagal paskyrą, iš PostgreSQL paima tos mašinos ir bendrabučio nustatymus. Rezervavimo modulis apskaičiuoja pabaigos laiką, patikrina darbo valandas ir konfliktus. Jei laikas tinka, rezervacija įrašoma į DB ir puslapyje parodomas jos numeris; jei užimtas, grąžinama priežastis.
+A bendrabučio gyventojas pasirenka mašiną Nr. 2 ir būsimą datą, pavyzdžiui, 2031-01-15. Jis nori rezervuoti nuo 15:00. Kai A bendrabučio trukmė yra 90 minučių ir laikas laisvas, rezervacija baigiasi 16:30.
 
 ### Sistemos schema
 
 ```mermaid
 flowchart TD
-    U["A gyventojas: mašina 2, 2031-01-15, 15:00"] --> H["HTML forma"]
-    H -->|"mašina, data ir pradžios laikas"| W["WebServer: paskyra, teisės, mašina"]
-    W -->|"patikrintas naudotojas, mašina ir laikas"| S["ReservationService: trukmė, laiko ir konfliktų taisyklės"]
-    W -->|"paskyros ir savo mašinų skaitymas"| P["JDBC klasės: paskyros, mašinos, nustatymai ir rezervacijos"]
-    S -->|"bendrabučio nustatymų ir rezervacijų skaitymas; rezervacijos įrašymas"| P
-    P <-->|"SQL užklausos ir rezultatai"| D[("PostgreSQL: bendrabučiai, naudotojai, mašinos ir rezervacijos")]
-    S -->|"rezervacija arba atmetimo priežastis"| W
-    W -->|"HTML rezultatas"| H
+    B["Naršyklė"] -->|"POST /reservations"| W["WebServer"]
+    W <-->|"paskyra pagal sesijos slapuką"| A["HttpAuthentication ir SessionManager"]
+    W <-->|"to bendrabučio mašinos"| J["Duomenų prieigos klasės"]
+    W -->|"gyventojas, mašina, pradžia"| S["ReservationService"]
+    S <-->|"nustatymai ir rezervacijos"| J
+    J <-->|"SQL skaitymas ir įrašymas"| D[("PostgreSQL")]
+    S -->|"rezervacija arba klaida"| W
+    W <-->|"duomenys puslapiui ir paruoštas HTML"| H["PageRenderer"]
+    W -->|"HTTP atsakymas su HTML"| B
 ```
+
+### Rezervacijos kelias kode
+
+1. `WebServer` pagal sesijos slapuką nustato paskyrą. Tada `routeAuthenticatedRequest` pagal metodą ir adresą `POST /reservations` parenka `handleReservationCreation`. [Maršrutas](src/main/java/WebServer.java#L95)
+2. `handleReservationCreation` patikrina gyventojo rolę ir bendrabutį, perskaito formos laukus per `RequestFields` ir suranda mašiną gyventojo bendrabutyje. [Formos apdorojimas](src/main/java/WebServer.java#L138)
+3. `createReservation` pagal bendrabučio ID gauna trukmę ir apskaičiuoja pabaigą. Metodas patikrina, ar pradžia ateityje ir atitinka 30 min. žingsnį, ar laikas telpa į darbo valandas ir ar tuo metu mašina laisva ir gyventojas neturi kitos rezervacijos. Laisvų laikų paieška naudoja tas pačias konfliktų patikras. [Rezervavimo taisyklės](src/main/java/ReservationService.java#L20)
+4. Jei patikros sėkmingos, `save` įrašo rezervaciją į PostgreSQL. `PageRenderer` paruošia HTML, o `WebServer` grąžina puslapį su rezervacijos numeriu. Jei pasirinktas laikas užimtas, serveris grąžina HTML su atmetimo priežastimi ir HTTP 400. [Įrašymas į DB](src/main/java/PostgresReservationRepository.java#L39) · [Klaidos atsakymas](src/main/java/WebServer.java#L261)
 
 | Komponentas | Atsakomybė šiame veiksme | Kodo vieta |
 | --- | --- | --- |
-| HTML | Pateikia mašinos, datos ir 24 valandų laiko laukus; rodo lietuviškai suformatuotą rezultatą | [page.html](src/main/resources/page.html), [WebServer.showHome](src/main/java/WebServer.java#L355) |
-| HTTP serveris | Patikrina prisijungimą, parenka savo bendrabučio mašiną ir perduoda duomenis moduliui | [WebServer](src/main/java/WebServer.java), [findMachine](src/main/java/WebServer.java#L245), [createReservation](src/main/java/WebServer.java#L273) |
+| HTML pateikimas | `PageRenderer` iš serverio perduotų duomenų sukuria formas, laisvų laikų ir rezervacijų sąrašus | [PageRenderer](src/main/java/PageRenderer.java), [page.html](src/main/resources/page.html) |
+| Formos nuskaitymas | Perskaito pateiktus laukus ir iš datos bei laiko sudaro rezervacijos pradžią | [RequestFields](src/main/java/RequestFields.java) |
+| HTTP prisijungimas | Tikrina prisijungimo duomenis, nustato paskyrą pagal slapuką arba API antraštę ir tvarko sesijos slapuką | [HttpAuthentication](src/main/java/HttpAuthentication.java) |
+| Sesijų valdymas | Sukuria, suranda ir panaikina atmintyje laikomas sesijas | [SessionManager](src/main/java/SessionManager.java) |
+| HTTP serveris | Pagal HTTP metodą ir adresą parenka veiksmą, tikrina prieigą, suranda bendrabučio mašiną ir kviečia rezervavimo modulį | [WebServer](src/main/java/WebServer.java), [findMachineInOwnDormitory](src/main/java/WebServer.java#L251), [handleReservationCreation](src/main/java/WebServer.java#L138) |
 | Rezervavimo modulis | Pagal nustatytą trukmę patikrina ateities laiką, darbo valandas ir persidengimą | [ReservationService.createReservation](src/main/java/ReservationService.java#L20) |
-| Duomenų prieiga | Nuskaito bendrabučio nustatymą, jo mašinas ir rezervacijas; įrašo naują rezervaciją | [PostgresReservationSettingsSource](src/main/java/PostgresReservationSettingsSource.java#L19), [PostgresCatalog](src/main/java/PostgresCatalog.java), [PostgresReservationRepository](src/main/java/PostgresReservationRepository.java) |
+| Duomenų prieiga | Nuskaito bendrabučio nustatymą, mašinas ir rezervacijas. Įrašo naują rezervaciją. | [PostgresReservationSettingsRepository](src/main/java/PostgresReservationSettingsRepository.java#L19), [PostgresMachineCatalog](src/main/java/PostgresMachineCatalog.java), [PostgresReservationRepository](src/main/java/PostgresReservationRepository.java) |
 | PostgreSQL | Saugo susietus bendrabučių, naudotojų, mašinų ir rezervacijų įrašus | [init.sql](database/init.sql), [accounts.sql](database/accounts.sql) |
 
-**Projektavimo pasirinkimas.** [ReservationService konstruktorius](src/main/java/ReservationService.java#L13) gauna dvi nedideles sąsajas: `ReservationStore` rezervacijoms ir `ReservationSettingsSource` bendrabučio nustatymams. Todėl rezervavimo taisyklėse nėra SQL ar visiems bendrabučiams įrašytos vienos trukmės. Veikiančioje sistemoje sąsajas įgyvendina PostgreSQL klasės, o vienetiniuose testuose naudojama atminties saugykla ir fiksuotas laikrodis. Tai leidžia tą pačią taisyklę išbandyti be DB ir pakeisti A nustatymą nekopijuojant algoritmo.
+**Projektavimo pasirinkimas.** `ReservationService` per `ReservationStore` gauna ir saugo rezervacijas, o per `ReservationSettingsSource` perskaito bendrabučio nustatymus. Veikiančioje sistemoje duomenis teikia PostgreSQL klasės. Vienetiniame teste tas pats servisas naudoja atminties saugyklą ir fiksuotą laikrodį. Taip rezervavimo taisykles galima išbandyti atskirai nuo duomenų bazės. [Serviso konstruktorius](src/main/java/ReservationService.java#L13) · [Atminties saugykla](src/main/java/InMemoryReservationRepository.java)
 
-**Nedidelis pakeitimas ir patikrinimas.** Jei rezervavimo pradžia ir laisvi laikai turėtų būti kas 15, o ne kas 30 minučių, `ReservationService.START_STEP_MINUTES` pakeisčiau iš 30 į 15 ir pritaikyčiau šios klasės klaidos pranešimą apie leidžiamas minutes. Ta pati konstanta naudojama laisvų laikų sąrašui, rezervavimo patikrai ir minučių pasirinkimui puslapyje. Teste su fiksuotu 2030-11-19 12:00 UTC laiku, tuščia mašina ir 2030-11-20 data sąraše turėtų atsirasti 07:15, rezervavimas 07:15 turėtų pavykti, o 07:10 – būti atmestas. Esamą 30 minučių žingsnio testą taip pat pritaikyčiau naujai taisyklei. Šis pakeitimas dabar **neatliktas**; tai konkretaus mažo pakeitimo ir jo testo pavyzdys. Dabartinę 30 minučių taisyklę tikrina [ReservationServiceTest.acceptsOnlyHalfHourStartTimesShownAsAvailable](src/test/java/ReservationServiceTest.java#L45).
+**Pakeitimo pavyzdys.** Norint pereiti nuo 30 prie 15 minučių žingsnio, pakeisčiau `START_STEP_MINUTES` ir atnaujinčiau netinkamo laiko pranešimą. Tą pačią konstantą naudoja rezervavimo patikra, laisvų laikų paieška ir formos minučių sąrašas. Patikrinčiau, ar būsimą dieną laisvai mašinai galima pasirinkti ir rezervuoti laiką nuo 07:15, o bandymas rezervuoti nuo 07:10 atmetamas. Dabartiniame HTTP teste netinkamos pradžios pavyzdys yra 13:33. [Laiko žingsnis](src/main/java/ReservationService.java#L8) · [Formos minutės](src/main/java/PageRenderer.java#L131) · [HTTP testas](src/test/java/WebServerIntegrationTest.java#L99)
 
-**II etapo funkcijos išliko.** [ReservationServiceTest](src/test/java/ReservationServiceTest.java) tikrina rezervacijos sukūrimą, laiko ribas, konfliktus ir gyventojų bei bendrabučių atskyrimą. [WebServerIntegrationTest.residentCanBookReadAndCancelThroughHttp](src/test/java/WebServerIntegrationTest.java#L79) tikrina rezervacijos sukūrimą, perskaitymą, konflikto atmetimą ir atšaukimą per HTTP. Per gynimą šie testai paleidžiami kartu su kitais žemiau nurodyta komanda.
+**II etapo funkcijos išliko.** [ReservationServiceTest](src/test/java/ReservationServiceTest.java) tikrina rezervacijos sukūrimą, svetimo bendrabučio mašinos atmetimą, praeities laiko ir darbo valandų ribas, mašinos bei gyventojo konfliktus ir bendrabučių atskyrimą. [WebServerIntegrationTest.residentCanCheckAvailabilityBookAndCancel](src/test/java/WebServerIntegrationTest.java#L99) tikrina laisvų laikų peržiūrą, rezervacijos sukūrimą, perskaitymą, konflikto atmetimą ir atšaukimą per HTTP. Per gynimą šie testai paleidžiami kartu su kitais žemiau nurodyta komanda.
 
 ## Pagrindinis kokybės atributas
 
-**Atributas ir sprendimas.** [I etapo plane](I_etapas_projektavimo_dokumentas.md) pasirinktas **palaikomumas**: A bendrabučio trukmę pakeitus iš 60 į 90 minučių, B turi likti 60 minučių, o rezervavimo taisyklių nereikia perrašyti. Kiekvieno bendrabučio trukmė saugoma `dormitories.reservation_minutes`. [PostgresReservationSettingsSource](src/main/java/PostgresReservationSettingsSource.java#L19) ją skaito pagal bendrabučio ID, o [ReservationService](src/main/java/ReservationService.java#L20) naudoja gautą reikšmę.
+**Palaikomumas.** Bendrabučio administratorius trukmę gali pritaikyti savo bendrabučiui per nustatymus. I etapo tikslas buvo patikrinti tokio pakeitimo poveikį abiem bendrabučiams. Bandymo pradžioje abu bendrabučiai naudoja 60 min. Pakeitus A reikšmę į 90 min., jo nauja rezervacija turi trukti 90 min., B rezervacija – 60 min. Abiem atvejais turi veikti tas pats rezervavimo metodas ir taisyklių testai. [I etapo planas](I_etapas_projektavimo_dokumentas.md)
 
-**Kaip vertinau atributą.** Palaikomumą vertinau pagal I etape pasirinktą nustatymo pakeitimo scenarijų. Tikrinau tris dalykus: ar A nustatymas pakeičia jo naujos rezervacijos trukmę, ar B elgesys išlieka toks pats ir ar esami rezervavimo taisyklių testai tebėra sėkmingi. Kodo peržiūroje patikrinau, kad abiem bendrabučiams naudojamas tas pats rezervavimo metodas, o trukmė gaunama iš bendrabučio nustatymų.
+**Kur tai matyti kode.** `updateReservationDuration` atnaujina `dormitories.reservation_minutes` pagal bendrabučio ID. `findForDormitory` perskaito reikšmę, o `createReservation` prideda ją prie pradžios laiko. [Trukmės įrašymas](src/main/java/PostgresReservationSettingsRepository.java#L39) · [Trukmės skaitymas](src/main/java/PostgresReservationSettingsRepository.java#L19) · [Pabaigos skaičiavimas](src/main/java/ReservationService.java#L29)
 
 **Pakartojamas bandymas.** Aplinka – veikiantis Docker Desktop ir pagal [README](README.md#paleidimas) paleista sistema. Prisijungimo duomenys pateikti tame pačiame README.
 
@@ -48,27 +59,25 @@ flowchart TD
 4. Abiem gyventojams savo bendrabučio mašiną Nr. 2 rezervuoti nuo 15:00. Palyginti naujų rezervacijų pabaigas: A turi būti 16:30, B – 16:00.
 5. Paleisti `docker compose run --build --rm app mvn test` ir patikrinti, kad nėra nesėkmių, klaidų ar praleistų testų.
 
-| I etape nustatytas sėkmės kriterijus | Faktinis rezultatas | Išvada ir įrodymas |
+| Sėkmės kriterijus | Faktinis rezultatas | Išvada ir įrodymas |
 | --- | --- | --- |
-| A nauja rezervacija – 90 min., B – 60 min.; pagrindinio algoritmo nereikia dubliuoti | [ReservationSettingsTest.changingOneDormitoryDurationDoesNotChangeTheOther](src/test/java/ReservationSettingsTest.java#L21) su 2030-11-20 15:00 įvestimi gavo A pabaigą 16:30, B – 16:00. [WebServerIntegrationTest.serverChecksLoginRoleTenantAndSettings](src/test/java/WebServerIntegrationTest.java#L21) patvirtino DB nustatymo pakeitimą ir rezervacijų trukmes | Pasiekta: abiem bendrabučiams taikomas tas pats `ReservationService.createReservation` metodas; jo konfliktų tikrinimo kodo keičiant nustatymą keisti nereikia |
-| Pakeitus A, B nustatymas lieka toks pats, o ankstesnės taisyklės tebeveikia | DB integracijos testas patikrino, kad B reikšmė nepasikeitė; 2026-11-22 15:25 vietos laiku Docker aplinkoje paleista 30 testų: 0 nesėkmių, 0 klaidų, 0 praleidimų, `BUILD SUCCESS` | Pasiekta vietiniame bandyme; komanda ir sąlygos pateiktos [README](README.md) |
+| Pakeitus A trukmę iš 60 į 90 min., B turi likti 60 min. Nuo 15:00 A rezervacija turėtų baigtis 16:30, B – 16:00. | 2026-11-23 bandyme su nauja demonstracine PostgreSQL baze gautas būtent toks rezultatas. Abi pabaigas parodė rezervacijų API. | Tikslas pasiektas. [Integracinis testas](src/test/java/WebServerIntegrationTest.java#L51) atskirai patikrina, kad per HTTP pakeitus A nustatymą, B reikšmė išlieka pradinė. |
+| Abiem bendrabučiams turi veikti tas pats rezervavimo metodas ir rezervavimo taisyklių testai. | Pakako pakeisti A nustatymą. Abiejų rezervacijų pabaigą apskaičiavo tas pats metodas. Visi 13 testų praėjo. | Tikslas pasiektas. [Rezervavimo metodas](src/main/java/ReservationService.java#L20) naudoja bendrabučio nustatymus. [Vienetinis testas](src/test/java/ReservationSettingsTest.java#L21) patikrina abi pabaigas su 90 ir 60 min. trukmėmis. |
 
-**Vertinimo išvada.** Pasirinkto scenarijaus sėkmės kriterijus pasiektas: trukmė keičiama per bendrabučio nustatymą, bendro rezervavimo algoritmo tam keisti ar kopijuoti nereikia, o esamos taisyklės patikrintos testais. A/B rezultatai kartu įrodo kliento konfigūracijos izoliaciją; palaikomumui svarbu tai, kad pakeitimui pakako nustatymo, išlaikant bendrą algoritmą. Ši išvada taikoma šiam konkrečiam pakeitimui ir neįrodo, kad visus būsimus sistemos pakeitimus atlikti bus vienodai lengva.
-
-Bandymo aplinka: macOS, Docker Desktop, Java 21 ir Maven konteineryje, PostgreSQL 17. Iš 30 testų 25 yra vienetiniai, 5 – su tikra DB. Žemiau pateikta tą dieną gauta Maven rezultatų suvestinė.
+Bandymo aplinka: macOS, Docker Desktop, Java 21 ir Maven konteineryje, PostgreSQL 17. Iš 13 testų 9 yra vienetiniai, 4 – su tikra DB. 2026-11-23 17:54 gauta Maven rezultatų suvestinė.
 
 ```text
-Tests run: 30, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 13, Failures: 0, Errors: 0, Skipped: 0
 BUILD SUCCESS
 ```
 
 ## SaaS veikimas ir paleidimas
 
-**Prisijungimas ir klientų izoliacija.** Prisijungimo forma per `PostgresAccounts.authenticate` patikrina slaptažodį DB. `WebServer` sukuria atsitiktinį sesijos žetoną, laiko jį Java atmintyje 8 valandas ir naršyklei siunčia `HttpOnly` slapuką. Atsijungimas panaikina žetoną. Bendrabučio ID ir rolė gaunami iš patikrintos paskyros, o `allowedDormitory` atmeta kito bendrabučio ID. Mašinų ir rezervacijų užklausos ribojamos tuo ID. A gyventojo `GET /api/reservations?dormitoryId=2` grąžina 403. Keičiant duomenis [WebServer.cancelReservation](src/main/java/WebServer.java#L288) perduoda patikrintą naudotoją ir rezervacijos ID metodui [ReservationService.cancelReservation](src/main/java/ReservationService.java#L169). Šis metodas ieško tik savo bendrabučio rezervacijose ir tikrina savininką bei pradžios laiką. Rankiniame bandyme A gyventojas pateikė tikrą B rezervacijos Nr. 11 identifikatorių į `POST /cancel`: gavo 400 ir pranešimą „Rezervacija nerasta arba neturite teisės jos atšaukti.“ B rezervacija išliko. 400 šiame maršrute yra bendras netinkamo atšaukimo rezultatas; svetimo bendrabučio parametrui naudojamas 403. Taisyklę taip pat tikrina [ReservationServiceTest.cannotCancelOtherDormitoryReservation](src/test/java/ReservationServiceTest.java#L305).
+**Prisijungimas.** `HttpAuthentication.signIn` per `PostgresAccounts` patikrina slaptažodį. Jei prisijungti pavyksta, `SessionManager` sukuria sesiją, o naršyklė gauna `HttpOnly` slapuką. Sesija galioja iki 8 valandų. Atsijungus `signOut` ją panaikina. [Prisijungimo ir atsijungimo kodas](src/main/java/HttpAuthentication.java#L17) · [Atsijungimo testas](src/test/java/WebServerIntegrationTest.java#L145)
 
-**Rolės.** [WebServer.changeSettings](src/main/java/WebServer.java#L297) ir [createResident](src/main/java/WebServer.java#L309) leidžiami tik `ADMIN`. To paties `POST /admin/settings` veiksmo su `minutes=90` rezultatas: gyventojui – 403, A administratoriui – 200 ir pakeistas A nustatymas. A administratoriaus užklausa su `dormitoryId=2` grąžina 403. Administratorius taip pat gali sukurti savo bendrabučio gyventojo paskyrą. Kuriant paskyrą bendrabutis imamas iš administratoriaus paskyros, ne iš formos. Įrodymas: [WebServerIntegrationTest.administratorCreatesResidentOnlyInOwnDormitory](src/test/java/WebServerIntegrationTest.java#L149).
+**Bendrabučių atskyrimas.** Serveris gauna bendrabučio ID iš patikrintos paskyros. A gyventojui paprašius B bendrabučio duomenų per API, `requireOwnDormitory` grąžina 403. Atšaukiant rezervaciją, `cancelReservation` jos ieško gyventojo bendrabutyje ir patikrina savininką bei pradžios laiką. Rankiniame bandyme A gyventojo bandymas atšaukti B rezervaciją grąžino 400, o B įrašas išliko. [Bendrabučio patikra](src/main/java/WebServer.java#L227) · [Atšaukimo taisyklė](src/main/java/ReservationService.java#L163) · [Izoliavimo testas](src/test/java/ReservationServiceTest.java#L80)
 
-**Kliento konfigūracija.** A administratorius keičia tik A `reservation_minutes` įrašą per [PostgresSettingsAdmin.changeDuration](src/main/java/PostgresSettingsAdmin.java#L17). B reikšmė lieka 60. Rezervuojant nuo 15:00, A pabaiga 16:30, B 16:00; serveris kiekvieną kartą paima prisijungusio gyventojo bendrabučio nustatymą.
+**Rolės.** Per `POST /admin/settings` A administratorius savo bendrabučiui gali nustatyti 90 min. ir gauna 200. Gyventojas už tą patį veiksmą gauna 403. Jei A administratorius nurodo B bendrabutį, serveris grąžina 403. Tas pats rolės patikrinimas taikomas kuriant gyventojo paskyrą. Nauja paskyra priskiriama administratoriaus bendrabučiui. [Trukmės keitimas](src/main/java/WebServer.java#L157) · [Paskyros kūrimas](src/main/java/WebServer.java#L166) · [Teisių ir trukmės testas](src/test/java/WebServerIntegrationTest.java#L51)
 
 Norint pakartoti svetimos rezervacijos atšaukimo bandymą, B gyventojas sukuria būsimą rezervaciją ir užsirašo jos numerį. A gyventojas prisijungia žemiau pateikta komanda, o `B_REZERVACIJOS_ID` pakeičia tuo tikru numeriu:
 
@@ -79,7 +88,9 @@ curl -i -b /tmp/laundry-a.cookies -d 'reservationId=B_REZERVACIJOS_ID' http://lo
 
 Tikimasi 303 po prisijungimo ir 400 po atšaukimo bandymo. B gyventojas atnaujina savo puslapį ir patikrina, kad rezervacija išliko. Naršyklės ir terminalo sesijos yra atskiros.
 
-**API užklausa.** `GET /api/reservations` naršyklėje naudoja tą patį sesijos slapuką. Tiesioginėms API užklausoms be slapuko galima siųsti `Authorization: Basic`: tokia užklausa atskirai patikrinama DB. Naršyklės HTML puslapiai `Basic` antraštę ignoruoja, todėl iš jų galima patikimai atsijungti. Su `Basic` antrašte serveris iš pačios užklausos gauna prisijungimo duomenis, DB patikrina paskyrą ir jos bendrabutį, tada rezervacijas skaito iš DB. Todėl šią užklausą gali aptarnauti kitas serverio procesas be ankstesnio prisijungimo savo atmintyje. Patikroje du serverio egzemplioriai naudojo tą pačią DB: pirmojo sesijos slapukas antrajame grąžino 401, o atskira `Basic` užklausa – 200. Tai buvo papildoma techninė patikra; ji nėra atskiras į repozitoriją įtrauktas JUnit testas. Žemiau pateiktos komandos leidžia pakartoti prisijungimo prie API patikrą viename veikiančiame serveryje. Šis nepriklausomumas taikomas tiesioginėms JSON API skaitymo užklausoms; HTML formos naudoja serverio sesiją. Po serverio perkrovimo atmintyje laikytos sesijos nebegalioja.
+**Kliento konfigūracija.** A administratoriui pakeitus A trukmę į 90 min., B liko 60 min. Tai matyti ir abiejų rezervacijų pabaigose. Bandymo eiga ir rezultatai pateikti [palaikomumo skyriuje](#pagrindinis-kokybės-atributas).
+
+**API užklausa.** Naršyklėje `GET /api/reservations` gali naudoti sesijos slapuką. Tiesioginė užklausa gali perduoti prisijungimo duomenis per `Authorization: Basic`. Serveris juos patikrina PostgreSQL gavęs konkrečią užklausą ir perskaito tai paskyrai prieinamas rezervacijas. Tokiai užklausai pakanka jos antraštės ir DB duomenų, todėl ją galima pateikti iškart po serverio paleidimo. [Paskyros nustatymas](src/main/java/HttpAuthentication.java#L37) · [JSON atsakymas](src/main/java/WebServer.java#L176)
 
 API prisijungimo patikrą galima pakartoti be ankstesnio prisijungimo ir be slapukų failo:
 
@@ -105,16 +116,16 @@ curl -i -u student_1_101:neteisingas http://localhost:8080/api/reservations
 | A ir B trukmės nustatomos atskirai, rezervavimo taisyklė bendra | `reservation_minutes` laikoma kiekvieno bendrabučio DB eilutėje | 90/60 bandymas patvirtina I etapo palaikomumo tikslą |
 | I etape pagrindinis modulis ir keturios gyventojo funkcijos; administratorius numatytas vėlesniam etapui | Išliko tos pačios gyventojo funkcijos, pridėti prisijungimas, administratoriaus trukmės keitimas ir paskyros kūrimas | Įgyvendintos III etapo rolės ir kliento nustatymas, nepakeičiant patvirtintos rezervavimo idėjos |
 
-I etapo plane ateičiai minėtas ir administratoriaus mašinų valdymas. Šiame variante mašinos sukuriamos pradiniais DB duomenimis; administratoriaus forma joms kurti neįgyvendinta. Keturios I etapo gyventojo funkcijos įgyvendintos. Tai sąmoningai apribota apimtis pagal III etapo bazinius kriterijus.
+I etapo plane ateičiai minėtas ir administratoriaus mašinų valdymas. Mašinos sukuriamos iš pradinių DB duomenų. Administratorius gali keisti trukmę ir kurti gyventojų paskyras. Keturios I etapo gyventojo funkcijos įgyvendintos. Tai sąmoningai apribota apimtis pagal III etapo bazinius kriterijus.
 
 ### AI panaudojimas
 
 | Priemonė ir paskirtis | Panaudota | Atmesta ar pakeista ir kodėl | Patikrinimas |
 | --- | --- | --- | --- |
-| ChatGPT/Codex: Java, SQL, testų pagalba | HTTP maršrutų, JDBC prieigos, rezervavimo ir testų kodas; vėliau prisijungimo forma su atsijungimu | Pasirinktas paprastas HTML be JavaScript karkaso, kad sąsają būtų lengva suprasti ir paaiškinti; rezervavimo taisyklės paliktos Java modulyje. Kodo peržiūros metu iš HTML pašalinta atsitiktinai įklijuota terminalo komanda | 2026-11-22 sėkmingai paleisti visi 30 testų su PostgreSQL, įskaitant prisijungimo ir paskyrų keitimo patikrą |
-| ChatGPT/Codex: dokumento tekstas | README ir šio dokumento struktūros juodraščiai | Patikslinti schemos ir API aprašai: taisyklių tikrinimas priskirtas rezervavimo moduliui, aiškiai atskirtos sesijos ir nepriklausomos `Basic` užklausos. | Aprašas palygintas su konkrečiais metodais ir bandymų išvestimis; po HTML pataisos visi 30 testų praėjo |
+| ChatGPT/Codex: Java, SQL, testų pagalba | HTTP maršrutų, JDBC prieigos, rezervavimo ir testų kodas; vėliau prisijungimo forma su atsijungimu ir HTML perkėlimas į `PageRenderer`, prisijungimo ir slapukų tvarkymas `HttpAuthentication` klasėje bei sesijų saugojimas `SessionManager` klasėje | Pasirinktas paprastas HTML be JavaScript karkaso, kad sąsają būtų lengva suprasti ir paaiškinti; rezervavimo taisyklės paliktos Java modulyje. Kodo peržiūros metu iš HTML pašalinta atsitiktinai įklijuota terminalo komanda | Galutiniame rinkinyje 13 testų. HTTP testai patikrino prisijungimą, teises ir sesijos panaikinimą atsijungus. |
+| ChatGPT/Codex: dokumento tekstas | README ir šio dokumento struktūros juodraščiai | Patikslinti schemos ir API aprašai: taisyklių tikrinimas priskirtas rezervavimo moduliui, aiškiai atskirtos sesijos ir nepriklausomos `Basic` užklausos. | Schemos veiksmai sutikrinti su Java metodais, o 90/60 bandymo rezultatai – su testų patikromis. |
 | Gemini Pro: I etapo plano peržiūra | I etape aptarti plano pasiūlymai; galutiniame kode Gemini nenaudojamas | Nepasirinkti nepatikrinti arba šiai apimčiai nereikalingi pasiūlymai | I etapo dokumento palyginimas su užduoties reikalavimais |
 
 AI nėra sistemos funkcija: rezervavimo sprendimą priima Java taisyklės pagal DB duomenis.
 
-**Įgyvendinimo riba.** Dabartinis konfliktų tikrinimas atmeta nuosekliai pateiktas persidengiančias rezervacijas. `synchronized` neleidžia dviem užklausoms vienu metu atlikti rezervacijos patikrinimo ir įrašymo per tą patį `ReservationService` objektą. Dabartinis serveris naudoja vieną tokį objektą. Dvi visiškai vienu metu vykdomos užklausos iš atskirų serverio procesų neturi papildomo DB apribojimo. Tokia konkurencinė situacija šiame vietiniame variante negarantuojama.
+**Lygiagrečios užklausos.** Viename serveryje `synchronized` užtikrina, kad rezervacijos tikrinimas ir įrašymas per tą patį `ReservationService` objektą vyksta po vieną. Paleidus kelis serverio procesus, bendrą apsaugą nuo vienalaikių persidengimų reikėtų užtikrinti PostgreSQL.
